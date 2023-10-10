@@ -77,6 +77,7 @@ int main(int argc, const char * argv[])
     
     if (line_flag)
     {
+        std::cout << "Loaded Starting Position: \n" << stock.pos << std::endl;
         std::vector<double> sharpnesses {};
         sharpnesses.reserve(starting_moves.size()+1);
         double ratio = stock.PositionSharpness(depth, neutral_move_delta_threshold,
@@ -141,20 +142,21 @@ int main(int argc, const char * argv[])
         std::cout << "Sharpness ratio of: " << "(bad/(ok+bad)) " << bad_moves <<
         "/(" << ok_moves << "+" << bad_moves << ") = " << bad_moves/(ok_moves+bad_moves) << std::endl;
         
+        std::cout << "Good Moves: " << '\n';
         // show the "better than inaccuracies" moves.
         auto mi = moves.begin();
         auto ei = evals.begin();
         for (int i = 0; i < moves.size(); i++) {
             auto m = *mi;
             auto e = *ei;
-            std::cout << "[" << e << "]\t";
-            std::cout << Utils::to_alg(stock.pos, m) << " (" << Utils::to_long_alg(m) << ")" << '\n';
-            
-            //        auto delta = std::abs(base_eval - e);
-            //        if (delta <= good_move_delta_threshold){
-            //            std::cout << "[" << e << "]\t";
-            //            std::cout << Utils::to_alg(stock.pos, m) << " (" << Utils::to_long_alg(m) << ")" << '\n';
-            //        }
+//            std::cout << "[" << e << "]\t";
+//            std::cout << Utils::to_alg(stock.pos, m) << " (" << Utils::to_long_alg(m) << ")" << '\n';
+
+            auto delta = std::abs(base_eval - e);
+            if (delta <= good_move_delta_threshold){
+                std::cout << "[" << e << "]\t";
+                std::cout << Utils::to_alg(stock.pos, m) << " (" << Utils::to_long_alg(m) << ")" << '\n';
+            }
             
             if (ei < evals.end() && mi < moves.end()) { ei++; mi++; }
         }

@@ -48,8 +48,6 @@ void Stock::SetNewPosition(const std::string &FEN)
     // wait for the stockfish to be ready
     this->read(output, "readyok");
     pos.set(FEN, false, &si_, nullptr);
-    
-    std::cout << "Loaded Position: \n" << pos << std::endl;
 }
 
 double Stock::EvalPosition(int depth, int timeout_ms)
