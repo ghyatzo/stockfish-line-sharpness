@@ -5,84 +5,105 @@
 //  Created by Camillo Schenone on 09/10/2023.
 //
 
+#include <sstream>
+#include <ranges>
 #include "utils.hpp"
 
 namespace Utils {
     using namespace Stockfish;
     
-    char pt_to_char(PieceType pt)
-    {
-        std::string piece_types {"  NBRQK"};
-        return piece_types[pt];
-    }
-    
+    // Piece and square translation
+    char pt_to_char(PieceType pt) { return "  NBRQK"[pt]; }
     PieceType char_to_pt(char c)
     {
         switch (c) {
             case ' ': return PieceType::PAWN;
-            case 'n':
             case 'N': return PieceType::KNIGHT;
-            case 'r':
             case 'R': return PieceType::ROOK;
-            case 'b':
             case 'B': return PieceType::BISHOP;
-            case 'q':
             case 'Q': return PieceType::QUEEN;
-            case 'k':
             case 'K': return PieceType::KING;
             default: return PieceType::NO_PIECE_TYPE;
-        }
-    }
-    
-    Square pt_to_sq(Position &pos, PieceType pt)
-    {
-        switch (pt) {
-            case PAWN: return pos.square<PAWN>(pos.side_to_move());
-            case ROOK: return pos.square<ROOK>(pos.side_to_move());
-            case KNIGHT: return pos.square<KNIGHT>(pos.side_to_move());
-            case BISHOP: return pos.square<BISHOP>(pos.side_to_move());
-            case QUEEN: return pos.square<QUEEN>(pos.side_to_move());
-            case KING: return pos.square<KING>(pos.side_to_move());
-            default: return SQ_NONE;
         }
     }
     
     Square coord_to_sq(std::string coord)
     {
         assert(coord.size() == 2);
-        Rank r { (coord[1] - '0') - 1 };
-        File f { (coord[0] - 'a') };
-        return make_square(f, r);
+        return make_square(File(coord[0] - 'a'), Rank((coord[1] - '0') - 1));
     }
     
-    std::string to_square(Square s) {
+    std::string to_coord(Square s) 
+    {
         return std::string{ char('a' + file_of(s)), char('1' + rank_of(s)) };
     }
     
+    // Move notation translation
     std::string to_alg(Position &pos, Move m)
     {
         auto sq { to_sq(m) };
         auto piece { type_of(pos.moved_piece(m)) };
+        auto num_N = pos.count<KNIGHT>(pos.side_to_move());
+        auto num_R = pos.count<ROOK>(pos.side_to_move());
+        auto num_Q = pos.count<QUEEN>(pos.side_to_move());
+        auto num_B= pos.count<BISHOP>(pos.side_to_move());
+        std::string disc = "";
+        std::string move {};
+        
         // castling logic
         if (type_of(m) == MoveType::CASTLING) {
-            auto sqsq = to_square(sq);
             if (pos.side_to_move() == WHITE) {
-                return to_square(sq) == "h1" ? "O-O" : "O-O-O";
+                return to_coord(sq) == "h1" ? "O-O" : "O-O-O";
             } else {
-                return to_square(sq) == "h8" ? "O-O" : "O-O-O";
+                return to_coord(sq) == "h8" ? "O-O" : "O-O-O";
             }
         }
-        // capture
-        if (pos.capture(m)) {
-            return std::string(1, pt_to_char(piece)) + "x" + to_square(sq);
+        // discriminant
+        if ( (piece != PAWN ) && (num_N > 1 || num_R > 1 || num_B > 2 || num_Q > 1) ) {
+            std::vector<Move> candidates {};
+            for (const auto om : MoveList<LEGAL>(pos)) {
+                if (to_sq(m) == to_sq(om) && pos.moved_piece(m) == pos.moved_piece(om)) candidates.push_back(om);
+            }
+            if (candidates.size() == 2) { // bishops and rooks can have at most two candidates.
+                for (const auto cm : candidates) {
+                    // compare the file and rank of all candidates moves with the right move.
+                    
+                    // if there is another piece that can reach the same end square on a different row
+                    // use the row as discriminant
+                    if (file_of(from_sq(cm)) != file_of(from_sq(m))) {
+                        disc += std::string(1, 'a' + file_of(from_sq(m))); break;
+                    }
+                    if (rank_of(from_sq(cm)) != rank_of(from_sq(m))) {
+                        disc += std::string(1, '1' + rank_of(from_sq(m))); break;
+                    }
+                }
+            }
+            if (candidates.size() > 2) { // 3 or more knights or queens
+                disc += to_coord(from_sq(m));
+            }
         }
         // promotion
         if (type_of(m) == PROMOTION) {
             PieceType pt {promotion_type(m)};
-            return to_square(sq) + "=" + pt_to_char(pt);
+            if (pos.capture(m))
+                move += std::string(1, char('a' + file_of(from_sq(m)))) + "x" + to_coord(sq);
+            else move += to_coord(sq);
+            move += "=" + std::string(1, pt_to_char(pt));
+            if (pos.gives_check(m)) move += "+";
+            return move;
+        }
+        // capture
+        if (pos.capture(m)) {
+            if (piece == PAWN)
+                return std::string(1, char('a' + file_of(from_sq(m)))) + "x" + to_coord(sq);
+            
+            return std::string(1, pt_to_char(piece)) + disc + "x" + to_coord(sq);
         }
         
-        return pt_to_char(piece) + to_square(sq);
+        move = to_coord(sq);
+        if (pos.gives_check(m)) move += "+";
+        
+        return (piece == PAWN) ? move : pt_to_char(piece) + disc + move;
     }
     
     std::string to_long_alg(Move m)
@@ -96,74 +117,15 @@ namespace Utils {
         auto to   { to_sq(m) };
         
         if (type_of(m) == CASTLING)
-            to = make_square(to > from ? FILE_G : FILE_C, rank_of(from));
+            to = make_square(to > from ? FILE_H : FILE_A, rank_of(from));
         
-        std::string move {to_square(from) + to_square(to)};
+        std::string move {to_coord(from) + to_coord(to)};
         
         if (type_of(m) == PROMOTION) {
             move += " pnbrqk"[promotion_type(m)];
         }
         
         return move;
-    }
-    
-    std::string alg_to_long(Position &pos, std::string alg)
-    {
-        PieceType piece;
-        Square from;
-        Square to;
-        Bitboard positions;
-        char disc = ' ';
-        std::vector<std::string> candidate_moves {};
-        // castling
-        if (alg == "O-O" || alg == "O-O-O") {
-            piece = KING;
-            from = pos.square<KING>(pos.side_to_move());
-            to = make_square((alg == "O-O") ? FILE_G : FILE_C, rank_of(from));
-            return to_square(from) + to_square(to);
-        } else if (alg.find('=') != std::string::npos ) { // promotion
-            assert(alg.size() == 4);
-            to = coord_to_sq(alg.substr(0, 2));
-            from = make_square(file_of(to), pos.side_to_move() == WHITE ? RANK_7 : RANK_2 );
-            return to_square(from) + to_square(to) + std::string(1, tolower(alg[5]));
-        } else {
-            piece = (alg[0] >= 'a' && alg[0] <= 'h') ? PAWN : char_to_pt(alg[0]);
-            if (alg.find('x') != std::string::npos) {
-                // we have to consider a specification of ambiguous move Rab1/Rhb1
-                disc = ((alg[1] >= 'a' && alg[1] <= 'h')
-                        || (alg[1] >= '1' && alg[1] <= '8')) ? alg[1] : ' ';
-                to = coord_to_sq(alg.substr(disc == ' ' ? 2 : 3));
-            } else {
-                if (alg.size() == 2) to = coord_to_sq(alg);
-                else if (alg.size() == 3) to = coord_to_sq(alg.substr(1));
-                else {
-                    disc = alg[1];
-                    to = coord_to_sq(alg.substr(2));
-                }
-            }
-            positions = pos.pieces(piece);
-            while (popcount(positions)) {
-                from = lsb(positions);
-                candidate_moves.push_back(to_square(from) + to_square(to));
-                positions ^= from;
-            }
-            for (const auto& s : candidate_moves) {
-                Move m = long_alg_to_move(pos, s);
-                if (m == MOVE_NONE) continue;
-                if (disc == ' ') return s; // only one legal move possible
-                // if the candidate square matches the discriminant
-                if (   (char('a' + file_of(from_sq(m))) == disc)
-                    || (char('1' + rank_of(from_sq(m))) == disc) ) return s;
-            }
-        }
-        
-        return "(null)";
-    }
-    
-    std::string long_to_alg(Position &pos, std::string str)
-    {
-        Move m = long_alg_to_move(pos, str);
-        return to_alg(pos, m);
     }
     
     Move long_alg_to_move(Position &pos, std::string str)
@@ -179,11 +141,126 @@ namespace Utils {
         
         return MOVE_NONE;
     }
+    
+    std::string alg_to_long(Position &pos, std::string alg)
+    {
+        PieceType piece;
+        Square from;
+        Square to;
+        Bitboard positions;
+        std::string disc {};
+        std::vector<std::string> candidate_moves {};
+        // remove the check marker, we don't care in long notation.
+        if (alg.ends_with('+')) alg = alg.substr(0, alg.size()-1);
+        
+        // castling
+        if (alg == "O-O" || alg == "O-O-O") {
+            piece = KING;
+            from = pos.square<KING>(pos.side_to_move());
+            to = make_square((alg == "O-O") ? FILE_H : FILE_A, rank_of(from));
+            is_ok(to); is_ok(from);
+            return to_coord(from) + to_coord(to);
+        }
+        
+        if (alg.size() == 2) { // pawn move
+            to = coord_to_sq(alg);
+            piece = PAWN;
+            if (rank_of(to) != RANK_4 && rank_of(to) != RANK_5) {
+                Rank r = pos.side_to_move() == WHITE ? Rank(alg[1] - '1' - 1) : Rank(alg[1] - '1' + 1);
+                from = make_square(file_of(to), r);
+                is_ok(to); is_ok(from);
+                return to_coord(from) + to_coord(to);
+            }
+        } else if (alg.size() == 3) { // Piece Move
+            to = coord_to_sq(alg.substr(1, 2));
+            piece = char_to_pt(alg[0]);
+        } else if (alg.size() == 4) { // Capture, pawn promotion, disambig move
+            if (size_t pos = alg.find('x'); pos != std::string::npos) { // it's a capture.
+                assert(pos == 1); // the x is the second character, otherwise we have a malformed string.
+                to = coord_to_sq(alg.substr(2)); // last two.
+                piece = (alg[0] >= 'a' && alg[0] <= 'h') ? PAWN : char_to_pt(alg[0]);
+            } else if (size_t pos = alg.find('='); pos != std::string::npos) { // promotion
+                assert(pos == 2); // the = is the third character, otherwise we ha a malformed string.
+                to = coord_to_sq(alg.substr(0, 2));
+                from = make_square(File(alg[0] - 'a'), Rank(alg[1] - '1' - 1));
+                is_ok(to); is_ok(from);
+                return to_coord(from) + to_coord(to) + std::string(1, tolower(alg[3]));
+            } else { // we are disambiguating a piece move
+                assert((alg[1] >= 'a' && alg[1] <= 'h') || (alg[1] >= '1' && alg[1] <= '8'));
+                to = coord_to_sq(alg.substr(2));
+                piece = char_to_pt(alg[0]);
+                disc = alg[1];
+            }
+        } else if (alg.size() == 5) { // disambig capture, double disambig move
+            if (size_t pos = alg.find('x'); pos != std::string::npos) {
+                assert(pos == 2); // x in the 3rd position
+                assert((alg[1] >= 'a' && alg[1] <= 'h') || (alg[1] >= '1' && alg[1] <= '8'));
+                to = coord_to_sq(alg.substr(3));
+                piece = char_to_pt(alg[0]);
+                disc = alg[1];
+            } else { // double d move
+                to = coord_to_sq(alg.substr(3));
+                piece = char_to_pt(alg[0]);
+                disc = alg.substr(1, 2);
+            }
+        } else if (alg.size() == 6) { // promotion with capture, double disambig capture
+            if (size_t pos = alg.find('='); pos != std::string::npos) { // we have a promotion with capture.
+                assert(pos == 4);
+                pos = alg.find('x');
+                assert(pos == 1);
+                to = coord_to_sq(alg.substr(2, 2));
+                from = make_square(File(alg[0] - 'a'), RANK_7);
+                is_ok(to); is_ok(from);
+                return to_coord(from) + to_coord(to) + std::string(1, tolower(alg[5]));
+            } else {
+                assert(alg.find('x') == 3);
+                to = coord_to_sq(alg.substr(4,2));
+                piece = char_to_pt(alg[0]);
+                disc = alg.substr(1, 2);
+            }
+        } else {
+            return "(null)";
+        }
+        
+        assert(piece != NO_PIECE_TYPE);
+        is_ok(to);
+        positions = pos.pieces(pos.side_to_move(), piece);
+        while (popcount(positions)) {
+            from = lsb(positions);
+            candidate_moves.push_back(to_coord(from) + to_coord(to));
+            positions ^= from;
+        }
+        for (const auto& s : candidate_moves) {
+            Move m = long_alg_to_move(pos, s);
+            if (m == MOVE_NONE) continue;
+            if (disc.empty()) return s;
+            else if (disc.size() == 1) {
+                // return the move that starts from the same rank of file of the discriminant
+                if (   (std::string(1, 'a' + file_of(from_sq(m))) == disc)
+                    || (std::string(1, '1' + rank_of(from_sq(m))) == disc) ) return s;
+            } else { // double disc
+                // return the move that has the same from square as the disc
+                if (to_coord(from_sq(m)) == disc) return s;
+            }
+        }
+        // if nothing was found return a null move.
+        return "(null)";
+    }
+    
+    std::string long_to_alg(Position &pos, std::string str)
+    {
+        Move m = long_alg_to_move(pos, str);
+        return to_alg(pos, m);
+    }
+
     Move alg_to_move(Position &pos, std::string alg) {
         std::string long_alg = alg_to_long(pos, alg);
         return long_alg_to_move(pos, long_alg);
     }
     
+    
+    
+    // info parsing
     void print_output(std::vector<std::string> & output, std::string prefix)
     {
         for (auto s : output) {
@@ -191,52 +268,110 @@ namespace Utils {
         }
     }
     
-    double extract_eval(std::string eval_str)
+    std::string parse_best_move(const std::vector<std::string> & output) 
     {
-        std::string res;
-        for (auto i = eval_str.begin() + 16; i < eval_str.end(); i++) {
-            if (*i == '+' || *i == '-') {
-                while (*i != ' ') {
-                    res += *i;
-                    i++;
+        std::string token;
+        std::istringstream is;
+        for (const auto& s : std::views::reverse(output)) { // bestmove is usually the last line.
+            is.str(s);
+            while (is >> std::skipws >> token) {
+                if (token == "bestmove") {
+                    is >> std::skipws >> token;
+                    return token;
                 }
-                break;
             }
         }
-        return std::stod(res);
+        return "(null)";
+    }
+    
+    std::string parse_score(const std::string & info_line)
+    {
+        std::istringstream is {info_line};
+        std::string token;
+        while (is >> std::skipws >> token) {
+            if (token == "cp") {
+                is >> std::skipws >> token;
+                return token;
+            }
+            if (token == "mate") {
+                is >> std::skipws >> token;
+                //append an "m" to indicate mates
+                return token+"m";
+            }
+        }
+        throw std::runtime_error("failed to parse cp/mate score: bad format.");
+    }
+    
+    std::tuple<int, int, int> parse_wdl(const std::string & info_line)
+    {
+        std::istringstream is {info_line};
+        std::string token;
+        int W, D, L;
+        while (is >> std::skipws >> token) {
+            if (token == "wdl") {
+                is >> W >> D >> L;
+                return std::make_tuple(W, D, L);
+            }
+        }
+        throw std::runtime_error("failed to parse WDL score: bad format. (make sure to enable the UCI_showWDL option).");
+    }
+    
+    Value cp_to_value(int cp)
+    {
+        // reversed the formula used by stockfish to obtain the cp out of the value. we don't care about mates.
+        const int NormalizeToPawnValue = 328;
+        return Value(cp * NormalizeToPawnValue / 100);
+    }
+    
+    int to_cp(Value v) {
+        const int NormalizeToPawnValue = 328;
+        return 100 * v / NormalizeToPawnValue;
     }
     
     //info depth 14 seldepth 19 multipv 1 score cp 289 wdl 1000 0 0 nodes 2529 nps 126450 hashfull 0 tbhits 0 time 20 pv f7g6 ...
     double centipawns(Color col, std::string &output)
     {
-        std::string res {};
-        size_t cp_pos = output.find("cp");
-        size_t mate_pos = output.find("mate");
-        size_t offset;
-        if (mate_pos != std::string::npos) {
-            offset = mate_pos + 5;
-        } else if ( cp_pos != std::string::npos ) {
-            offset = cp_pos + 3;
+        std::string score { parse_score(output) };
+        Value v;
+        if (score.ends_with('m')) {
+            int mate_ply = std::stoi(score.substr(0, score.size()-1));
+            v = mate_ply < 0 ? mated_in(mate_ply) : mate_in(mate_ply);
         } else {
-            return 0;
+            v = cp_to_value(std::stoi(score));
         }
         
-        for (auto i = output.begin() + offset; i < output.end(); i++) {
-            if (*i == ' ') break;
-            res += *i;
-        }
+        double cp = to_cp(v);
+        return col == Color::BLACK ? -1*cp/100.0 : cp/100.0;
         
-        // cp are relative to the player. so a positive cp is good for the current player.
-        // We want to give a position relative score, so the cp are *-1 for the black.
         
-        // if we have a checkmate, signal it with 9999 for white or -9999 for black.
-        double cp = std::stod(res);
-        if (mate_pos != std::string::npos) {
-            if (cp <= 5) col == Color::BLACK ? cp = -9999 : cp = 9999;
-            else if (cp > 5 && cp <= 10) col == Color::BLACK ? cp = -5555 : cp = 5555;
-            else col == Color::BLACK ? cp = -1111 : cp = 1111;
-        } else cp = cp / 100;
-        
-        return col == Color::BLACK ? -1*cp : cp;
+//        std::string res {};
+//        size_t cp_pos = output.find("cp");
+//        size_t mate_pos = output.find("mate");
+//        size_t offset;
+//        if (mate_pos != std::string::npos) {
+//            offset = mate_pos + 5;
+//        } else if ( cp_pos != std::string::npos ) {
+//            offset = cp_pos + 3;
+//        } else {
+//            return 0;
+//        }
+//        
+//        for (auto i = output.begin() + offset; i < output.end(); i++) {
+//            if (*i == ' ') break;
+//            res += *i;
+//        }
+//        
+//        // cp are relative to the player. so a positive cp is good for the current player.
+//        // We want to give a position relative score, so the cp are *-1 for the black.
+//        
+//        // if we have a checkmate, signal it with 9999 for white or -9999 for black.
+//        double cp = std::stod(res);
+//        if (mate_pos != std::string::npos) {
+//            if (cp <= 5) col == Color::BLACK ? cp = -9999 : cp = 9999;
+//            else if (cp > 5 && cp <= 10) col == Color::BLACK ? cp = -5555 : cp = 5555;
+//            else col == Color::BLACK ? cp = -1111 : cp = 1111;
+//        } else cp = cp / 100;
+//        
+//        return col == Color::BLACK ? -1*cp : cp;
     }
 } // namespace Stock

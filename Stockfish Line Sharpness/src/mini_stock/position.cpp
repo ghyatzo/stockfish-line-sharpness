@@ -419,7 +419,7 @@ string Position::fen() const {
   if (!can_castle(ANY_CASTLING))
       ss << '-';
 
-  ss << (ep_square() == SQ_NONE ? " - " : " " + Utils::to_square(ep_square()) + " ")
+  ss << (ep_square() == SQ_NONE ? " - " : " " + Utils::to_coord(ep_square()) + " ")
      << st->rule50 << " " << 1 + (gamePly - (sideToMove == BLACK)) / 2;
 
   return ss.str();
@@ -673,9 +673,9 @@ void Position::do_move(Move m, bool givesCheck) {
 
   // Increment ply counters. In particular, rule50 will be reset to zero later on
   // in case of a capture or a pawn move.
-  ++gamePly;
-  ++st->rule50;
-  ++st->pliesFromNull;
+//  ++gamePly;
+//  ++st->rule50;
+//  ++st->pliesFromNull;
 
   // Used by NNUE
 //  st->accumulator.computed[WHITE] = false;
@@ -907,8 +907,8 @@ void Position::undo_move(Move m) {
   }
 
   // Finally point our state pointer back to the previous state
-  st = st->previous;
-  --gamePly;
+//  st = st->previous;
+//  --gamePly;
 
   assert(pos_is_ok());
 }

@@ -11,12 +11,17 @@
 #include <stdio.h>
 #include <string>
 #include "utils.hpp"
-#include "sys_process.h"
+#include "../ext/sys_process.h"
 #include "mini_stock/bitboard.h"
 #include "mini_stock/position.h"
 #include "mini_stock/movegen.h"
 
 using namespace Stockfish;
+struct StockOptions {
+    int threads;
+    bool showWDL;
+    int multiPV;
+};
 
 class Stock : public System::Process {
 public:
@@ -24,9 +29,9 @@ public:
     Stock(const Stock&) = delete;
     Stock& operator=(const Stock&) = delete;
     
-    StateInfo getState() { return si_; }
-    
     void Start();
+    void Start(const StockOptions & opts);
+    void SetOption(const std::string & optname, const std::string & optvalue);
     bool Read(const std::string &expected, int timeout_ms = -1);
     void SetNewPosition(const std::string &FEN);
     MoveList<LEGAL> GetMoves();
@@ -34,16 +39,24 @@ public:
     double EvalMove(Move m, int depth, int timeout_ms = -1);
     std::vector<double> EvalMoves(MoveList<LEGAL> &moves, int depth, int timeout_ms = -1);
     
-    std::tuple<double, double>
+    std::tuple<double, double, double>
     ComputeSharpness(const std::vector<double> &evals, double base_eval,
-                     double bad_th, double ok_th, double dont_care_th);
+                     double blunders_th, double bad_th, double ok_th);
     
     double
-    PositionSharpness(int depth, double bad_th, double ok_th, double dont_care_th);
+    MoveSharpness(Stockfish::Move m, int depth,
+                     double blunder_th, double bad_th, double ok_th);
+    
+    std::tuple<double, double>
+    PositionSharpness(int depth, double blunders_th, double bad_th, double ok_th);
+    
+    std::vector<std::string>
+    GenerateSharpLine(int line_length, int depth, double blund_th, double bad_th, double ok_th);
 public:
     Position pos;
     std::vector<std::string> output;
 private:
+    StockOptions opts_;
     StateInfo si_;
 };
 
