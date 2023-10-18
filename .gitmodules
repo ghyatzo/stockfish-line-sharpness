@@ -1,0 +1,3 @@
+[submodule "Stockfish Line Sharpness/ext/minimal-process-piping"]
+	path = Stockfish Line Sharpness/ext/minimal-process-piping
+	url = git@github.com:ghyatzo/minimal-process-piping.git

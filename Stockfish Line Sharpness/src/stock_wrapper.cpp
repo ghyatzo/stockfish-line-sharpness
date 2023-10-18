@@ -9,7 +9,6 @@
 #include <tuple>
 #include <numeric>
 #include "stock_wrapper.hpp"
-#include "../ext/dbg.h"
 
 Stock::Stock(const std::string command)
 : System::Process {command}, si_{}, pos {}, output {}, opts_{}

@@ -11,7 +11,7 @@
 #include <stdio.h>
 #include <string>
 #include "utils.hpp"
-#include "../ext/sys_process.h"
+#include "../ext/minimal-process-piping/sys_process.h"
 #include "mini_stock/bitboard.h"
 #include "mini_stock/position.h"
 #include "mini_stock/movegen.h"
