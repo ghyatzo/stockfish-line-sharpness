@@ -244,7 +244,7 @@ namespace System
                  We check for both POLLIN and POLLHUP, in case there is still data to read.
                  We rely on read to tell us if we reach the EOF.
                 */
-                int bytes_read = 0;
+                size_t bytes_read = 0;
                 if ( (fds.revents & POLLIN) || (fds.events & POLLHUP))
                 {
                     bytes_read = ::read(fds.fd, buffer, sizeof(buffer));
@@ -258,9 +258,10 @@ namespace System
                     
                     for (int i = 0; i < bytes_read; i++) {
                         if (buffer[i] == '\n') {
+                            if (curr_line.empty()) continue;
+
                             out_lines.push_back(curr_line);
                             // check if the current line has the expected substring. If it does, stop here.
-                            if (curr_line.empty()) continue;
                             if (!expected.empty()) {
                                 if (curr_line.rfind(expected, 0) != std::string::npos)
                                     return true;
