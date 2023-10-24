@@ -12,8 +12,8 @@
 
 #include "stock_wrapper.hpp"
 
-std::vector<double> whole_line_sharpness(Stock &stock, const std::vector<Move> &starting_moves, int depth);
+std::vector<double> LineSharpness(Engine&, const std::vector<Stockfish::Move>&, Position&);
 
-double end_position_sharpness(Stock &stock, const std::vector<Move> &starting_moves, int depth);
+double PositionSharpness(Engine&, Position&);
 
 #endif /* commands_hpp */

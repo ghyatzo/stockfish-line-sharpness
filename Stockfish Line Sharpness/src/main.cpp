@@ -71,7 +71,7 @@ public:
     Arguments(const Arguments &other) = delete;
     Arguments& operator=(const Arguments &other) = delete;
     
-    std::string engine() {return engine_path_;}
+    std::string engine_path() {return engine_path_;}
     std::string init_fen() {return fen_string_;}
     bool short_alg_notation() {return short_alg_;}
     
@@ -85,17 +85,17 @@ public:
     // Parse each move, depending on the notation and translate them to a Stockfish::Move for faster
     // internal manipulation. By necessity we have to advance the position after each move.
     // This ensures all passed moves are legal. After we reset to the intial position passed through the FEN.
-    std::vector<Move> translate_moves(Stock &stock)
+    std::vector<Stockfish::Move> translate_moves(Position& pos)
     {
-        std::vector<Move> starting_moves;
+        std::vector<Stockfish::Move> starting_moves;
+        Position tmp_pos {pos.fen()};
         for (int i = optind; i < args_.size(); i++)
         {
-            Move m { short_alg_ ? Utils::alg_to_move(stock.pos, args_[i]) : Utils::long_alg_to_move(stock.pos, args_[i]) };
+            Stockfish::Move m { short_alg_ ? Utils::alg_to_move(tmp_pos, args_[i]) : Utils::long_alg_to_move(tmp_pos, args_[i]) };
             starting_moves.push_back(m);
-            stock.pos.do_move(m);
+            tmp_pos.do_move(m);
         }
         
-        stock.SetPosition(fen_string_);
         return starting_moves;
     }
     
@@ -112,19 +112,29 @@ private:
     std::span<char * const> args_;
 };
 
-void print_moves(Stock &stock, int depth)
+void print_moves(Engine &engine, Position& pos)
 {
-    auto moves = stock.GetMoves();
-    auto evals = stock.EvalMoves(moves, depth);
+    auto moves = pos.GetMoves();
+    auto evals = engine.Eval(moves, pos);
+    auto base_eval = engine.Eval(pos);
     auto sorted_perm = Utils::sort_evals_perm(evals);
     
-    for (const auto i : sorted_perm) {
-        std::cout << "[" << evals[i] << "]\t";
-        std::cout << Utils::to_alg(stock.pos, moves[i]) << " (" << Utils::to_long_alg(moves[i]) << ")" << '\n';
-    }
+    if (pos.side_to_move() == Stockfish::WHITE)
+        for (const auto i : sorted_perm) {
+            auto relative_eval = evals[i] - base_eval;
+            std::cout << " " << evals[i] << "\t[" << relative_eval << "]\t";
+            std::cout << Utils::to_alg(pos, moves[i]) << "\t(" << Utils::to_long_alg(moves[i]) << ")" << '\n';
+        }
+    else
+        for (const auto i : std::views::reverse(sorted_perm)) {
+            auto relative_eval = base_eval - evals[i];
+            std::cout << " " << evals[i] << "\t[" << relative_eval << "]\t";
+            std::cout << Utils::to_alg(pos, moves[i]) << "\t(" << Utils::to_long_alg(moves[i]) << ")" << '\n';
+        }
+        
 }
 
-double average_sharpness(const std::vector<double> &sharpnesses, Color col, Color starting_col)
+double average_sharpness(const std::vector<double> &sharpnesses, Stockfish::Color col, Stockfish::Color starting_col)
 {
     auto it = sharpnesses.cbegin();
     int num_moves = (static_cast<int>(sharpnesses.size()) + 1) / 2;
@@ -141,7 +151,7 @@ double average_sharpness(const std::vector<double> &sharpnesses, Color col, Colo
     return accumulate / static_cast<double>(num_moves);
 }
 
-Color starting_color(int n_ply, Color ending_color)
+Stockfish::Color starting_color(int n_ply, Stockfish::Color ending_color)
 {
     // operator~ toggles the color.
     if (n_ply % 2 == 0) { return ~ending_color; }
@@ -151,33 +161,33 @@ Color starting_color(int n_ply, Color ending_color)
 int main(int argc, char * const argv[])
 {
     auto args = Arguments(argc, argv);
-    auto stock = Stock(args.engine(), args.init_fen());
+    auto engine = Engine(args.engine_path());
+    auto starting_pos = Position(args.init_fen());
     
-    auto moves = args.translate_moves(stock);
-    stock.Start();
+    auto moves = args.translate_moves(starting_pos);
+    engine.Start();
     
     int depth = args.depth();
     if (args.whole_line()) 
     {
         std::cout << "Line analysis:" << std::endl;
-        std::cout << "Loaded Starting Position: \n" << stock.pos << std::endl;
-//        std::cout << "Eval: " << stock.EvalPosition(depth, -1) << " (depth: " << depth << ")" << std::endl;
-        end_position_sharpness(stock, {}, depth);
+        std::cout << "Loaded Starting Position: \n" << starting_pos << std::endl;
+//        std::cout << "Eval: " << engine.EvalPosition(depth, -1) << " (depth: " << depth << ")" << std::endl;
+        PositionSharpness(engine, starting_pos);
         // just compute the lines, then analyse.
-        auto sharpness = whole_line_sharpness(stock, moves, depth);
-        std::cout << "Sharpness by Move:" << std::endl;
-        stock.SetPosition(args.init_fen());
+        auto sharpness = LineSharpness(engine, moves, starting_pos);
         
+        std::cout << "Sharpness by Move:" << std::endl;
         // sharpness also has the sharpness for the starting position. while moves do not.
         //TODO: make this sturdier
         for (int i {1}; i < sharpness.size(); i++) {
-            std::cout << "( " << Utils::to_alg(stock.pos, moves[i-1]) << " ) " << sharpness[i] << std::endl;
-            stock.pos.do_move(moves[i-1]);
+            std::cout << "( " << Utils::to_alg(starting_pos, moves[i-1]) << " )\t" << sharpness[i] << std::endl;
+            starting_pos.do_move(moves[i-1]);
         }
         
-        auto start_col = starting_color(sharpness.size(), stock.pos.side_to_move());
-        auto white_sharp_avg = average_sharpness(sharpness, WHITE, start_col);
-        auto black_sharp_avg = average_sharpness(sharpness, BLACK, start_col);
+        auto start_col = starting_color((int)sharpness.size(), starting_pos.side_to_move());
+        auto white_sharp_avg = average_sharpness(sharpness, Stockfish::WHITE, start_col);
+        auto black_sharp_avg = average_sharpness(sharpness, Stockfish::BLACK, start_col);
          
         std::cout << "White has an average line sharpness of: " << white_sharp_avg << std::endl;
         std::cout << "Black has an average line sharpness of: " << black_sharp_avg << std::endl;
@@ -185,28 +195,32 @@ int main(int argc, char * const argv[])
     else if (args.generate_line())
     {
         // same here
-//        stock.AdvancePosition(starting_moves, !short_alg);
-//        std::cout << stock.pos << std::endl;
-//        auto line = stock.GenerateSharpLine(generate_line_length, depth);
+//        engine.AdvancePosition(starting_moves, !short_alg);
+//        std::cout << engine.pos << std::endl;
+//        auto line = engine.GenerateSharpLine(generate_line_length, depth);
     }
     else {
         
         std::cout << "Sharpness analysis:" << std::endl;
         std::cout << "stepping through moves..." << std::endl;
-        end_position_sharpness(stock, moves, depth);
-        print_moves(stock, depth);
+        starting_pos.Advance(moves);
+        std::cout << starting_pos << std::endl;
+        PositionSharpness(engine, starting_pos);
+        print_moves(engine, starting_pos);
     }
     
     if (args.interactive()) {
+        using namespace std::chrono_literals;
+        
         std::string input {};
         while (true) {
             std::getline(std::cin, input);
             if (input.empty()) continue;
             if (input == "exit") break;
             // send commands to stockfish directly
-            stock.send_command(input);
-            stock.Read("", 1500);
-            Utils::print_output(stock.output);
+            engine.send_command(input);
+            engine.Read("", 1500ms);
+            Utils::print_output(engine.output);
         }
     }
 }

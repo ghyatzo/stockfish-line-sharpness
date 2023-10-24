@@ -83,7 +83,7 @@ public:
   Position& operator=(const Position&) = delete;
 
   // FEN string input/output
-  Position& set(const std::string& fenStr, bool isChess960, StateInfo* si, Thread* th);
+  Position& set(const std::string& fenStr, bool isChess960, StateInfo* si);
   Position& set(const std::string& code, Color c, StateInfo* si);
   std::string fen() const;
 
@@ -145,7 +145,6 @@ public:
   Color side_to_move() const;
   int game_ply() const;
   bool is_chess960() const;
-  Thread* this_thread() const;
   bool is_draw(int ply) const;
   bool has_game_cycle(int ply) const;
   bool has_repeated() const;
@@ -184,7 +183,6 @@ private:
   int castlingRightsMask[SQUARE_NB];
   Square castlingRookSquare[CASTLING_RIGHT_NB];
   Bitboard castlingPath[CASTLING_RIGHT_NB];
-  Thread* thisThread;
   StateInfo* st;
   int gamePly;
   Color sideToMove;
@@ -352,10 +350,6 @@ inline bool Position::capture_stage(Move m) const {
 
 inline Piece Position::captured_piece() const {
   return st->capturedPiece;
-}
-
-inline Thread* Position::this_thread() const {
-  return thisThread;
 }
 
 inline void Position::put_piece(Piece pc, Square s) {

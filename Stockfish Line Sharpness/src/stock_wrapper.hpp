@@ -17,43 +17,46 @@
 #include "mini_stock/position.h"
 #include "mini_stock/movegen.h"
 
-using namespace Stockfish;
+#include "position.hpp"
+
 struct StockOptions {
     int threads;
     bool showWDL;
     int multiPV;
 };
 
-class Stock : public System::Process {
+class Engine : public System::Process {
 public:
-    Stock(const std::string &command, const std::string &FEN);
-    Stock(const Stock&) = delete;
-    Stock& operator=(const Stock&) = delete;
+    Engine(const std::string &path);
+    Engine(const std::string &path, int depth, std::chrono::milliseconds timeout);
+    Engine(const Engine&) = delete;
+    Engine& operator=(const Engine&) = delete;
     
-    MoveList<LEGAL> GetMoves() const { return MoveList<LEGAL>(pos); }
     const StockOptions& GetOptions() const { return opts_; }
     void SetOption(const std::string & optname, const std::string & optvalue);
+    
+    inline int Depth() const { return depth_; }
+    inline void Depth(int depth) { depth_ = depth; }
 
     void Start();
     void Start(const StockOptions&);
-    bool Read(const std::string & expected, int timeout_ms = -1);
+    bool Read(const std::string &expected, std::chrono::milliseconds timeout);
+    inline bool Read(const std::string &expected) { return Read(expected, timeout_); }
     
-    void SetPosition(const std::string &FEN);
-    void SetNewPosition(const std::string & FEN);
-    void AdvancePosition(const std::vector<Move> &moves);
+    void NewGame();
     
-    std::string GetBestMove(int depth, int timeout_ms);
-    double EvalPosition(int depth, int timeout_ms = -1);
-    double EvalMove(Move m, int depth, int timeout_ms = -1);
-    void EvalMoves(std::vector<double> &evals, const MoveList<LEGAL> &moves, int depth, int timeout_ms = -1);
-    std::vector<double> EvalMoves(const MoveList<LEGAL> &moves, int depth, int timeout_ms = -1);
+    std::string GetBestMove(Position&);
+    double Eval(Position&);
+    double Eval(Stockfish::Move, Position&);
+    void Eval(std::vector<double> &evals, const Stockfish::MoveList<Stockfish::LEGAL>&, Position&);
+    std::vector<double> Eval(const Stockfish::MoveList<Stockfish::LEGAL>&, Position&);
     
 public:
-    Position pos;
     std::vector<std::string> output;
 private:
+    std::chrono::milliseconds timeout_;
+    int depth_;
     StockOptions opts_;
-    StateInfo si_;
 };
 
 #endif /* stock_wrapper_hpp */

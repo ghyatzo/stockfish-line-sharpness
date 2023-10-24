@@ -38,22 +38,22 @@ namespace Sharpness {
     }
     
     MoveDist
-    Position(Stock &stock, int depth)
+    ComputePosition(Engine &engine, Position& pos)
     {
-        double base_eval = stock.EvalPosition(depth, -1);
-        auto evals = stock.EvalMoves(stock.GetMoves(), depth, -1);
+        double base_eval = engine.Eval(pos);
+        auto evals = engine.Eval(pos.GetMoves(), pos);
         
         return MoveDistribution(evals, base_eval);
     }
     
     // TODO: these still needs work.
-    MoveDist Move(Stockfish::Move m, Stock &stock, int depth)
+    MoveDist ComputeMove(Stockfish::Move m, Engine &engine, Position& pos)
     {
         // how sharp is this move: playing this move generates a position, how sharp is that position?
         // how sharp is the resulting position for the adversary?
-        stock.pos.do_move(m);
-        auto base_eval = stock.EvalPosition(depth);
-        auto evals = stock.EvalMoves(stock.GetMoves(), depth);
+        pos.do_move(m);
+        auto base_eval = engine.Eval(pos);
+        auto evals = engine.Eval(pos.GetMoves(), pos);
         return MoveDistribution(evals, base_eval);
     }
     
@@ -74,7 +74,7 @@ namespace Sharpness {
         return {good_moves, bad_moves, static_cast<double>(blunders), static_cast<double>(total_moves)};
     }
     
-    double Complexity(Stock& stock, int max_depth)
+    double Complexity(Engine& engine, Position& pos, int max_depth)
     {
         // computes the complexity of a position.
         // see: Computer Analysis of World Chess Champions (M. Guld & I. Bratko)
@@ -84,16 +84,16 @@ namespace Sharpness {
         std::string best_move {};
         
         // the position is always the same.
-        auto moves = stock.GetMoves();
+        auto moves = pos.GetMoves();
         std::vector<double> evals(moves.size());
         std::vector<int> eval_perm(evals.size());
         std::iota(eval_perm.begin(), eval_perm.end(), 0);
         
         for(int d = 2; d < max_depth; d++) {
-            best_move = stock.GetBestMove(d, -1);
+            best_move = engine.GetBestMove(pos);
             if (best_move != old_best_move) {
                 old_best_move = best_move;
-                stock.EvalMoves(evals, moves, d);
+                engine.Eval(evals, moves, pos);
                 Utils::sort_evals_perm(eval_perm, evals);
                 complexity += std::abs(evals[eval_perm[0]] - evals[eval_perm[1]]);
             }

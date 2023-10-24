@@ -14,24 +14,25 @@
 #include "fen.hpp"
 
 // default to the starting position, if not FEN is passed.
-Stock::Stock(const std::string &command,
-             const std::string &FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
-: System::Process(command), si_(), pos(), output(), opts_()
+Engine::Engine(const std::string &path)
+: System::Process(path), output(), opts_(), depth_(15), timeout_(-1)
 {
-    Stockfish::Bitboards::init();
-    Stockfish::Position::init();
-    
-    SetPosition(FEN);
-    
     // default options
-    this->opts_.multiPV = 1;
-    this->opts_.showWDL = true;
-    this->opts_.threads = 4;
-    
+    opts_.multiPV = 1;
+    opts_.showWDL = true;
+    opts_.threads = 4;
+}
+Engine::Engine(const std::string &path, int depth, std::chrono::milliseconds timeout)
+: System::Process(path), output(), opts_(), depth_(depth), timeout_(timeout)
+{
+    // default options
+    opts_.multiPV = 1;
+    opts_.showWDL = true;
+    opts_.threads = 4;
 }
 
-void Stock::Start() { Start(opts_); }
-void Stock::Start(const StockOptions &opts)
+void Engine::Start() { Start(opts_); }
+void Engine::Start(const StockOptions &opts)
 {
     // we don't need to pass any argument, just call the executable.
     const char * const argv[] = { this->command_.c_str(), NULL };
@@ -53,7 +54,7 @@ void Stock::Start(const StockOptions &opts)
     this->read(output, "readyok");
 }
 
-void Stock::SetOption(const std::string & optname, const std::string & optvalue)
+void Engine::SetOption(const std::string & optname, const std::string & optvalue)
 {
     if (optname == "UCI_showWDL" ) this->opts_.showWDL = optvalue == "true" ? true : false;
     if (optname == "Threads" ) this->opts_.threads = std::stoi(optvalue);
@@ -62,79 +63,66 @@ void Stock::SetOption(const std::string & optname, const std::string & optvalue)
     this->send_command("setoption " + optname + " value " + optvalue);
 }
 
-bool Stock::Read(const std::string &expected, int timeout_ms)
-{   
-    return this->read(output, expected, timeout_ms);
-}
-
-void Stock::SetPosition(const std::string &FEN)
+bool Engine::Read(const std::string &expected, std::chrono::milliseconds timeout)
 {
-    if (checkFEN(FEN.c_str()) < 0)
-        throw std::runtime_error("Please enter a valid FEN string");
-    pos.set(FEN, false, &si_, nullptr);
+    return this->read(output, expected, int(timeout.count()));
 }
 
-void Stock::SetNewPosition(const std::string &FEN)
+void Engine::NewGame()
 {
     this->send_command("ucinewgame");
     this->send_command("isready");
     
     // wait for stockfish to be ready
     this->read(output, "readyok");
-    SetPosition(FEN);
 }
 
-void Stock::AdvancePosition(const std::vector<Move> &moves)
-{
-    for (const auto mm : moves) { pos.do_move(mm); }
-}
-
-std::string Stock::GetBestMove(int depth, int timeout_ms)
+std::string Engine::GetBestMove(Position& pos)
 {
     this->send_command("position fen " + pos.fen());
-    this->send_command("go depth " + std::to_string(depth));
-    Read("bestmove", timeout_ms);
+    this->send_command("go depth " + std::to_string(depth_));
+    Read("bestmove");
     
     return Utils::parse_best_move(output);
 }
 
-double Stock::EvalPosition(int depth, int timeout_ms)
+double Engine::Eval(Position& pos)
 {
     this->send_command("position fen " + pos.fen());
-    this->send_command("go depth " +  std::to_string(depth));
-    Read("bestmove", timeout_ms);
+    this->send_command("go depth " +  std::to_string(depth_));
+    Read("bestmove");
     
     return Utils::centipawns(pos.side_to_move(), output[output.size()-2]);
 }
 
-double Stock::EvalMove(Move m, int depth, int timeout_ms)
+double Engine::Eval(Stockfish::Move m, Position& pos)
 {
     // evaluates the move without changing pos.
     this->send_command("position fen " + pos.fen() + " moves " + Utils::to_long_alg(m));
-    this->send_command("go depth " + std::to_string(depth));
-    Read("bestmove", timeout_ms);
+    this->send_command("go depth " + std::to_string(depth_));
+    Read("bestmove");
     
     // measuring the first depths takes less than a ms, so we're safe.
     return Utils::centipawns(~pos.side_to_move(), output[output.size()-2]);
 }
 
-void Stock::EvalMoves(std::vector<double> &evals, const MoveList<LEGAL> &moves, int depth, int timeout_ms)
+void Engine::Eval(std::vector<double> &evals, const Stockfish::MoveList<Stockfish::LEGAL> &moves, Position& pos)
 {
     evals.resize(moves.size());
     for (int count {}; const auto m: moves) {
-        evals.emplace(evals.begin()+count, EvalMove(m, depth, timeout_ms));
-        PROGRESS_BAR(count, moves.size());
+        evals.emplace(evals.begin()+count, Eval(m, pos));
+        PROGRESS_BAR(count);
         count++;
     }
 }
 
-std::vector<double> Stock::EvalMoves(const MoveList<LEGAL> &moves, int depth, int timeout_ms)
+std::vector<double> Engine::Eval(const Stockfish::MoveList<Stockfish::LEGAL> &moves, Position& pos)
 {
     std::vector<double> evals;
     evals.reserve(moves.size());
     for (int count {}; const auto m: moves) {
-        evals.emplace_back(EvalMove(m, depth, timeout_ms));
-        PROGRESS_BAR(count, moves.size());
+        evals.emplace_back(Eval(m, pos));
+        PROGRESS_BAR(count);
         count++;
     }
     return evals;

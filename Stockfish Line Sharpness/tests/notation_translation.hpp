@@ -7,6 +7,7 @@
 
 //#include "notation_translation.hpp"
 #include "../src/utils.hpp"
+#include "../src/position.hpp"
 #include "../src/mini_stock/position.h"
 #include "../src/mini_stock/movegen.h"
 
@@ -116,7 +117,7 @@ namespace Test {
         }
     };
     
-    bool MovesLongAlg(Position& pos, std::vector<Move> moves, std::vector<std::string> la_moves)
+    bool MovesLongAlg(::Position& pos, std::vector<Move> moves, std::vector<std::string> la_moves)
     {
         assert(la_moves.size() == moves.size());
         for (int i = 0; i < la_moves.size(); i++) {
@@ -132,7 +133,7 @@ namespace Test {
         return true;
     }
     
-    bool MovesAlg(Position& pos, std::vector<Move> moves, std::vector<std::string> alg_moves)
+    bool MovesAlg(::Position& pos, std::vector<Move> moves, std::vector<std::string> alg_moves)
     {
         assert(alg_moves.size() == moves.size());
         for (int i = 0; i < alg_moves.size(); i++) {
@@ -148,7 +149,7 @@ namespace Test {
         return true;
     }
     
-    bool AlgLong(Position& pos, std::vector<std::string> alg_moves, std::vector<std::string> la_moves)
+    bool AlgLong(::Position& pos, std::vector<std::string> alg_moves, std::vector<std::string> la_moves)
     {
         assert(la_moves.size() == alg_moves.size());
         for (int i = 0; i < alg_moves.size(); i++) {
@@ -164,7 +165,7 @@ namespace Test {
         return true;
     }
     
-    bool MovesAreLegal(Position& pos, std::vector<Move> legal, std::vector<Move> illegal)
+    bool MovesAreLegal(::Position& pos, std::vector<Move> legal, std::vector<Move> illegal)
     {
         for (const auto& ms : legal) {
             bool pseudo_legal = pos.pseudo_legal(ms);
@@ -184,13 +185,8 @@ namespace Test {
 
 int test_translations()
 {
-    Bitboards::init();
-    Position::init();
     
-    auto pos = Position();
-    auto si = StateInfo();
-    
-    pos.set(Test::White::FEN, false, &si, NULL);
+    auto pos = ::Position(Test::White::FEN);
     
     std::cout << "Testing position for White: " << std::endl;
     std::cout << "Translating between Moves and Long Algebraic: \n";
@@ -213,7 +209,7 @@ int test_translations()
         std::cout << "Failed" << std::endl; std::abort();
     } std::cout << "Passed" << std::endl;
     
-    pos.set(Test::Black::FEN, false, &si, NULL);
+    pos.Set(Test::Black::FEN);
     
     std::cout << "Testing position for Black: " << std::endl;
     std::cout << "Translating between Moves and Long Algebraic: \n";

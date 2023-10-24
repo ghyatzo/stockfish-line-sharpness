@@ -40,7 +40,7 @@ namespace Utils {
     }
     
     // Move notation translation
-    std::string to_alg(Position &pos, Move m)
+    std::string to_alg(::Position &pos, Move m)
     {
         auto sq { to_sq(m) };
         auto piece { type_of(pos.moved_piece(m)) };
@@ -129,7 +129,7 @@ namespace Utils {
         return move;
     }
     
-    Move long_alg_to_move(Position &pos, std::string str)
+    Move long_alg_to_move(::Position &pos, std::string str)
     {
         if (str.length() == 5)
             str[4] = char(tolower(str[4])); // The promotion piece character must be lowercased
@@ -143,7 +143,7 @@ namespace Utils {
         return MOVE_NONE;
     }
     
-    std::string alg_to_long(Position &pos, std::string alg)
+    std::string alg_to_long(::Position &pos, std::string alg)
     {
         PieceType piece;
         Square from;
@@ -248,13 +248,13 @@ namespace Utils {
         return MOVE_NONE_STR;
     }
     
-    std::string long_to_alg(Position &pos, std::string str)
+    std::string long_to_alg(::Position &pos, std::string str)
     {
         Move m = long_alg_to_move(pos, str);
         return to_alg(pos, m);
     }
 
-    Move alg_to_move(Position &pos, std::string alg) {
+    Move alg_to_move(::Position &pos, std::string alg) {
         std::string long_alg = alg_to_long(pos, alg);
         return long_alg_to_move(pos, long_alg);
     }

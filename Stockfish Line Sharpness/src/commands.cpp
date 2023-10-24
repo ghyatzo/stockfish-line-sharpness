@@ -15,18 +15,19 @@
 
 
 //TODO: Make them more solid, incredibly janky as of now.
-std::vector<double> whole_line_sharpness(Stock &stock, const std::vector<Move> &moves, int depth)
+std::vector<double> LineSharpness(Engine &engine, const std::vector<Stockfish::Move> &moves, Position& pos)
 {
     std::vector<double> sharpnesses {};
     sharpnesses.reserve(moves.size()+1);
+    Position tmp {pos.fen()};
     
-    auto ratio = Sharpness::Ratio(Sharpness::Position(stock, depth));
+    auto ratio = Sharpness::Ratio(Sharpness::ComputePosition(engine, tmp));
     sharpnesses.emplace_back(ratio);
     
     for (int count {}; const auto mm : moves) {
-        PROGRESS_BAR(count, moves.size())
-        stock.pos.do_move(mm);
-        ratio = Sharpness::Ratio(Sharpness::Position(stock, depth));
+        PROGRESS_BAR(count)
+        tmp.do_move(mm);
+        ratio = Sharpness::Ratio(Sharpness::ComputePosition(engine, tmp));
         sharpnesses.emplace_back(ratio);
         
         ++count;
@@ -35,19 +36,16 @@ std::vector<double> whole_line_sharpness(Stock &stock, const std::vector<Move> &
     return sharpnesses;
 }
 
-double end_position_sharpness(Stock &stock, const std::vector<Move> &starting_moves, int depth)
+double PositionSharpness(Engine &engine, Position &pos)
 {
-    stock.AdvancePosition(starting_moves);
-    std::cout << stock.pos << std::endl;
-    
-    auto movedist = Sharpness::Position(stock, depth);
-    auto pos_complexity = Sharpness::Complexity(stock, depth);
+    auto movedist = Sharpness::ComputePosition(engine, pos);
+    auto pos_complexity = Sharpness::Complexity(engine, pos, engine.Depth());
     // print the ratio
     
-    double base_eval = stock.EvalPosition(depth, -1);
-    std::cout << "Eval: " << base_eval << " (depth: " << depth << ")" << std::endl;
+    double base_eval = engine.Eval(pos);
+    std::cout << "Eval: " << base_eval << " (depth: " << engine.Depth() << ")" << std::endl;
     std::cout << "In This position there are " << movedist.total << " possible moves.\n"
-    << (stock.pos.side_to_move() ? "Black" : "White") << " to move" << std::endl;
+    << (pos.side_to_move() ? "Black" : "White") << " to move" << std::endl;
     std::cout << "Bad moves: " << movedist.bad << " (loss >= " << MISTAKE_THRESHOLD << ")\n";
     std::cout << "Ok moves: " << movedist.good << " (loss < " << INACCURACY_THRESHOLD << ")\n";
     std::cout << "blunders: " << movedist.blunders << "\n";
