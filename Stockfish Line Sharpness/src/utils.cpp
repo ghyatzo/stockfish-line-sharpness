@@ -6,6 +6,7 @@
 //
 
 #include <sstream>
+#include <numeric>
 #include <ranges>
 #include "utils.hpp"
 
@@ -109,9 +110,9 @@ namespace Utils {
     std::string to_long_alg(Move m)
     {
         if (m == MOVE_NONE)
-            return "(none)";
+            return MOVE_NONE_STR;
         if (m == MOVE_NULL)
-            return "0000";
+            return MOVE_NULL_STR;
         
         auto from { from_sq(m) };
         auto to   { to_sq(m) };
@@ -219,7 +220,7 @@ namespace Utils {
                 disc = alg.substr(1, 2);
             }
         } else {
-            return "(null)";
+            return MOVE_NONE_STR;
         }
         
         assert(piece != NO_PIECE_TYPE);
@@ -244,7 +245,7 @@ namespace Utils {
             }
         }
         // if nothing was found return a null move.
-        return "(null)";
+        return MOVE_NONE_STR;
     }
     
     std::string long_to_alg(Position &pos, std::string str)
@@ -257,11 +258,10 @@ namespace Utils {
         std::string long_alg = alg_to_long(pos, alg);
         return long_alg_to_move(pos, long_alg);
     }
-    
-    
+
     
     // info parsing
-    void print_output(std::vector<std::string> & output, std::string prefix)
+    void print_output(const std::vector<std::string> & output, std::string prefix)
     {
         for (auto s : output) {
             std::cout << prefix << s << std::endl;
@@ -281,9 +281,10 @@ namespace Utils {
                 }
             }
         }
-        return "(null)";
+        return MOVE_NONE_STR;
     }
     
+    // TODO: support multiPV, gotta select manually for now (maybe another function?)
     std::string parse_score(const std::string & info_line)
     {
         std::istringstream is {info_line};
@@ -316,23 +317,14 @@ namespace Utils {
         throw std::runtime_error("failed to parse WDL score: bad format. (make sure to enable the UCI_showWDL option).");
     }
     
-    Value cp_to_value(int cp)
-    {
-        // reversed the formula used by stockfish to obtain the cp out of the value. we don't care about mates.
-        const int NormalizeToPawnValue = 328;
-        return Value(cp * NormalizeToPawnValue / 100);
-    }
+    Value cp_to_value(int cp) { return Value(cp * NormalizeToPawnValue / 100); };
+    int to_cp(Value v) { return 100 * v / NormalizeToPawnValue; }
     
-    int to_cp(Value v) {
-        const int NormalizeToPawnValue = 328;
-        return 100 * v / NormalizeToPawnValue;
-    }
-    
-    //info depth 14 seldepth 19 multipv 1 score cp 289 wdl 1000 0 0 nodes 2529 nps 126450 hashfull 0 tbhits 0 time 20 pv f7g6 ...
-    double centipawns(Color col, std::string &output)
+    double centipawns(Color col, const std::string &output)
     {
+        // normalise centipawns and mate values to a singol decimal value.
         std::string score { parse_score(output) };
-        Value v;
+        Value v {};
         if (score.ends_with('m')) {
             int mate_ply = std::stoi(score.substr(0, score.size()-1));
             v = mate_ply < 0 ? mated_in(mate_ply) : mate_in(mate_ply);
@@ -343,35 +335,24 @@ namespace Utils {
         double cp = to_cp(v);
         return col == Color::BLACK ? -1*cp/100.0 : cp/100.0;
         
-        
-//        std::string res {};
-//        size_t cp_pos = output.find("cp");
-//        size_t mate_pos = output.find("mate");
-//        size_t offset;
-//        if (mate_pos != std::string::npos) {
-//            offset = mate_pos + 5;
-//        } else if ( cp_pos != std::string::npos ) {
-//            offset = cp_pos + 3;
-//        } else {
-//            return 0;
-//        }
-//        
-//        for (auto i = output.begin() + offset; i < output.end(); i++) {
-//            if (*i == ' ') break;
-//            res += *i;
-//        }
-//        
-//        // cp are relative to the player. so a positive cp is good for the current player.
-//        // We want to give a position relative score, so the cp are *-1 for the black.
-//        
-//        // if we have a checkmate, signal it with 9999 for white or -9999 for black.
-//        double cp = std::stod(res);
-//        if (mate_pos != std::string::npos) {
-//            if (cp <= 5) col == Color::BLACK ? cp = -9999 : cp = 9999;
-//            else if (cp > 5 && cp <= 10) col == Color::BLACK ? cp = -5555 : cp = 5555;
-//            else col == Color::BLACK ? cp = -1111 : cp = 1111;
-//        } else cp = cp / 100;
-//        
-//        return col == Color::BLACK ? -1*cp : cp;
     }
-} // namespace Stock
+    void sort_evals_perm(std::vector<int> &perm, const std::vector<double> &evals)
+    {
+        std::sort(perm.begin(), perm.end(), [&](int a, int b){
+            return evals[a] > evals[b];
+        });
+    }
+    
+    std::vector<int> sort_evals_perm(const std::vector<double> &evals)
+    {
+        // work on a permutation vector.
+        std::vector<int> perm(evals.size());
+        std::iota(perm.begin(), perm.end(), 0);
+        
+        std::sort(perm.begin(), perm.end(), [&](int a, int b){
+            return evals[a] > evals[b];
+        });
+
+        return perm;
+    }
+} // namespace Utils

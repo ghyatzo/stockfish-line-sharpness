@@ -195,22 +195,22 @@ int test_translations()
     std::cout << "Testing position for White: " << std::endl;
     std::cout << "Translating between Moves and Long Algebraic: \n";
     if (!Test::MovesLongAlg(pos, Test::White::Moves::Legal, Test::White::LongAlg::Legal)) {
-        std::cout << "Failed" << std::endl; exit(1);
+        std::cout << "Failed" << std::endl; std::abort();
     } std::cout << "Passed" << std::endl;
     
     std::cout << "Translating between Moves and Algebraic: \n";
     if (!Test::MovesAlg(pos, Test::White::Moves::Legal, Test::White::Alg::Legal)) {
-        std::cout << "Failed" << std::endl; exit(1);
+        std::cout << "Failed" << std::endl; std::abort();
     } std::cout << "Passed" << std::endl;
     
     std::cout << "Translating between Algebraic and Long Algebraic: \n";
     if (!Test::AlgLong(pos, Test::White::Alg::Legal, Test::White::LongAlg::Legal)) {
-        std::cout << "Failed" << std::endl; exit(1);
+        std::cout << "Failed" << std::endl; std::abort();
     } std::cout << "Passed" << std::endl;
     
     std::cout << "Moves are Legal: \n";
     if (!Test::MovesAreLegal(pos, Test::White::Moves::Legal, Test::White::Moves::Illegal)) {
-        std::cout << "Failed" << std::endl; exit(1);
+        std::cout << "Failed" << std::endl; std::abort();
     } std::cout << "Passed" << std::endl;
     
     pos.set(Test::Black::FEN, false, &si, NULL);
@@ -218,22 +218,22 @@ int test_translations()
     std::cout << "Testing position for Black: " << std::endl;
     std::cout << "Translating between Moves and Long Algebraic: \n";
     if (!Test::MovesLongAlg(pos, Test::Black::Moves::Legal, Test::Black::LongAlg::Legal)) {
-        std::cout << "Failed" << std::endl; exit(1);
+        std::cout << "Failed" << std::endl; std::abort();
     } std::cout << "Passed" << std::endl;
     
     std::cout << "Translating between Moves and Algebraic: \n";
     if (!Test::MovesAlg(pos, Test::Black::Moves::Legal, Test::Black::Alg::Legal)) {
-        std::cout << "Failed" << std::endl; exit(1);
+        std::cout << "Failed" << std::endl; std::abort();
     } std::cout << "Passed" << std::endl;
     
     std::cout << "Translating between Algebraic and Long Algebraic: \n";
     if (!Test::AlgLong(pos, Test::Black::Alg::Legal, Test::Black::LongAlg::Legal)) {
-        std::cout << "Failed" << std::endl; exit(1);
+        std::cout << "Failed" << std::endl; std::abort();
     } std::cout << "Passed" << std::endl;
     
     std::cout << "Moves are Legal: \n";
     if (!Test::MovesAreLegal(pos, Test::Black::Moves::Legal, Test::Black::Moves::Illegal)) {
-        std::cout << "Failed" << std::endl; exit(1);
+        std::cout << "Failed" << std::endl; std::abort();
     } std::cout << "Passed" << std::endl;
     
     return 0;

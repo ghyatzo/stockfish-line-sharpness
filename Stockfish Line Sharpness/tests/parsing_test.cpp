@@ -26,15 +26,15 @@ int test_parsing()
         std::string best_move = Utils::parse_best_move(output_example);
         std::cout << "[Test][bestmove parsing] \t best move: " << best_move << " - ";
         if (best_move != "f3f7") {
-            std::cout << "Failed" << std::endl; exit(1);
+            std::cout << "Failed" << std::endl; std::abort();
         } std::cout << "Passed" << std::endl;
     }
     {
         std::vector<std::string> bad_output {output_example.begin(), output_example.end()-1};
         std::string best_move = Utils::parse_best_move(bad_output);
         std::cout << "[Test][bestmove parsing] \t best move: " << best_move << " - ";
-        if (best_move != "(null)") {
-            std::cout << "Failed" << std::endl; exit(1);
+        if (best_move != MOVE_NONE_STR) {
+            std::cout << "Failed" << std::endl; std::abort();
         } std::cout << "Passed" << std::endl;
     }
     {
@@ -48,7 +48,7 @@ int test_parsing()
         << " value: " << value
         << " WDL: " << W << "/" << D << "/" << L << " - ";
         if (score != "205" || W != 997 || D != 3 || L != 0) {
-            std::cout << "Failed" << std::endl; exit(1);
+            std::cout << "Failed" << std::endl; std::abort();
         } std::cout << "Passed" << std::endl;
     }
     {
@@ -62,7 +62,7 @@ int test_parsing()
         << " value: " << value
         << " WDL: " << W << "/" << D << "/" << L << " - ";
         if (score != "1m" || W != 1000 || D != 0 || L != 0) {
-            std::cout << "Failed" << std::endl; exit(1);
+            std::cout << "Failed" << std::endl; std::abort();
         } std::cout << "Passed" << std::endl;
     }
 

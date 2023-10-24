@@ -7,202 +7,206 @@
 
 #include <iostream>
 #include <ranges>
-#include "utils.hpp"
-#include "fen.hpp"
+#include <span>
+
 #include "stock_wrapper.hpp"
+#include "utils.hpp"
+#include "sharpness.hpp"
+#include "commands.hpp"
 
-void print_usage()
-{
-    std::cout << "Usage is: line_sharpness -e <engine path> [-d <depth>] [-f '<FEN string>'] [-l] [-a] [<moves>...] \n";
-    std::cout << "\t -h prints this message" << '\n';
-    std::cout << "\t -e <path> the path must be absolute" << '\n';
-    std::cout << "\t -d <int> default = 15" << '\n';
-    std::cout << "\t -f '<FEN string>' default = starpos (use quotes)" << '\n';
-    std::cout << "\t -l eval line flag" << '\n';
-    std::cout << "\t -a short algebraic flag" << '\n';
-    std::cout << "\t <moves>... set of moves relative to the position (use long algebraic notation)" << '\n';
-    std::cout << "If the -l flag is not set, only the end position given by <FEN> + <moves> is analysed." << '\n';
-    std::cout << "If the -l flag is passed, the whole line is analysed. There must be at least 1 move." << '\n';
-    std::cout << "If not the -L flag does nothing. (I suggest you evaluate lines on a low depth, lest you like to watch paint dry)" << '\n';
-    exit(0);
-}
-
-void advancePosition(Stockfish::Position &pos, const std::vector<std::string> &moves, bool long_alg)
-{
-    for (auto ms : moves) {
-        Move mm = long_alg ? Utils::long_alg_to_move(pos, ms)
-        : Utils::alg_to_move(pos, ms);
-
-        pos.do_move(mm);
+class Arguments {
+public:
+    static void s_print_usage()
+    {
+        std::cout << "Usage is: line_sharpness -e <engine path> [-d <depth>] [-f '<FEN string>'] [-l] [-a] [-G <length>] [<moves>...] \n";
+        std::cout << "\t -h prints this message" << '\n';
+        std::cout << "\t -e <path> the path must be absolute" << '\n';
+        std::cout << "\t -d <int> default = 15" << '\n';
+        std::cout << "\t -f '<FEN string>' default = startpos (use quotes)" << '\n';
+        std::cout << "\t -l eval whole line flag" << '\n';
+        std::cout << "\t -a short algebraic flag" << '\n';
+        std::cout << "\t -G <int> generate sharp line flag" << '\n';
+        std::cout << "\t <moves>... set of moves relative to the position (use long algebraic notation)" << '\n';
+        
+        std::cout << "- Compute the sharpness of the position given by <FEN> and after making the specified <moves>." << '\n';
+        std::cout << "- Pass the -l flag to evaluate the sharpness at every step when applying the <moves>. (I suggest you evaluate lines on a low depth, lest you like to watch paint dry)" << '\n';
+        std::cout << "- Pass the -G <length> to generate the sharpest line of the specified length, starting from the given position (plus eventual <moves>)." << '\n';
+        std::cout << "- Pass the -I flag to enable interactive mode with the specified engine in UCI mode." << '\n';
+        std::cout << "" << '\n';
+        std::exit(0);
     }
-}
-
-int main(int argc, const char * argv[])
-{
-    std::string FEN { "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1" };
-    std::string stockfish_path {};
-    std::vector<std::string> starting_moves {};
-    bool line_flag {false};
-    bool generate_line_flag {false};
-    int generate_line_length {};
-    bool short_alg {false};
-    int depth = 15;
     
-    // We want to know what percentage of moves ends up in a overall worse position.
-    // we consider a blunder losing 300+ cp, a mistake losing 120-300 cp and inaccuracies 50-120 cp.
-    // depending on the ELO, you might consider changing these values.
-    // for now lets just put everything under one "bad move umbrella", all the blunders and all the mistakes.
-    // inaccuracies are considered neutral, the rest is good moves.
-    constexpr double blunder_threshold = 3; // blunders
-    constexpr double mistake_threshold = 1.1; // mistakes (sono scarso dio caro).
-    constexpr double inaccuracy_threshold = 0.5; // inaccuracy
-    
-    int ch;
-    while ((ch = getopt(argc, const_cast<char * const *>(argv), "hlaG:d:e:f:")) != -1) {
-        switch (ch) {
-            case 'd': depth = std::stoi(optarg); break;
-            case 'e': stockfish_path = optarg; break;
-            case 'f': FEN = optarg; break;
-            case 'a': short_alg = true; break;
-            case 'l': line_flag = true; break;
-            case 'G': {
-                generate_line_flag = true;
-                generate_line_length = std::stoi(optarg);
-                break;
+    Arguments(int argc, char * const argv[])
+        :args_{argv, static_cast<size_t>(argc)}
+    {
+        int ch;
+        while ((ch = getopt(argc, argv, "hlaIG:d:e:f:")) != -1) {
+            switch (ch) {
+                case 'd': depth_            = std::stoi(optarg); break;
+                case 'e': engine_path_      = optarg; break;
+                case 'f': fen_string_       = optarg; break;
+                case 'a': short_alg_        = true; break;
+                case 'l': whole_line_       = true; break;
+                case 'I': interactive_      = true; break;
+                case 'G': {
+                    generate_line_          = true;
+                    generate_line_length_   = std::stoi(optarg);
+                    break;
+                }
+                case 'h': s_print_usage();
+                case '?': s_print_usage();
+                default: s_print_usage();
             }
-            case 'h': print_usage();
-            case '?': print_usage();
-            default: print_usage();
         }
+
+        if (engine_path_.empty()) s_print_usage();
+        
+        if (whole_line_ && generate_line_) {
+            std::cout << "The -l and -G flags are mutually exclusive, choose one." << '\n';
+            s_print_usage();
+        }
+        
+        if (optind == argc) whole_line_ = false;
+    }
+    Arguments(const Arguments &other) = delete;
+    Arguments& operator=(const Arguments &other) = delete;
+    
+    std::string engine() {return engine_path_;}
+    std::string init_fen() {return fen_string_;}
+    bool short_alg_notation() {return short_alg_;}
+    
+    bool interactive() {return interactive_;}
+    bool whole_line() {return whole_line_;}
+    bool generate_line() {return generate_line_;}
+    
+    int depth() {return depth_;}
+    size_t size() {return args_.size();}
+    
+    // Parse each move, depending on the notation and translate them to a Stockfish::Move for faster
+    // internal manipulation. By necessity we have to advance the position after each move.
+    // This ensures all passed moves are legal. After we reset to the intial position passed through the FEN.
+    std::vector<Move> translate_moves(Stock &stock)
+    {
+        std::vector<Move> starting_moves;
+        for (int i = optind; i < args_.size(); i++)
+        {
+            Move m { short_alg_ ? Utils::alg_to_move(stock.pos, args_[i]) : Utils::long_alg_to_move(stock.pos, args_[i]) };
+            starting_moves.push_back(m);
+            stock.pos.do_move(m);
+        }
+        
+        stock.SetPosition(fen_string_);
+        return starting_moves;
     }
     
-    if (line_flag && generate_line_flag) {
-        std::cout << "The -l and -G flags are mutually exclusive, choose one." << '\n';
-        print_usage();
+private:
+    std::string engine_path_ {};
+    std::string fen_string_ { "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1" };
+    bool whole_line_ {false};
+    bool interactive_ {false};
+    bool generate_line_ {false};
+    size_t generate_line_length_ {};
+    bool short_alg_ {false};
+    int depth_ {15};
+    
+    std::span<char * const> args_;
+};
+
+void print_moves(Stock &stock, int depth)
+{
+    auto moves = stock.GetMoves();
+    auto evals = stock.EvalMoves(moves, depth);
+    auto sorted_perm = Utils::sort_evals_perm(evals);
+    
+    for (const auto i : sorted_perm) {
+        std::cout << "[" << evals[i] << "]\t";
+        std::cout << Utils::to_alg(stock.pos, moves[i]) << " (" << Utils::to_long_alg(moves[i]) << ")" << '\n';
+    }
+}
+
+double average_sharpness(const std::vector<double> &sharpnesses, Color col, Color starting_col)
+{
+    auto it = sharpnesses.cbegin();
+    int num_moves = (static_cast<int>(sharpnesses.size()) + 1) / 2;
+    if (col != starting_col) {
+        it++;
+        num_moves = static_cast<int>(sharpnesses.size()) / 2;
+    }
+    double accumulate {};
+    while (it < sharpnesses.cend()) {
+        accumulate += *it;
+        it += 2;
     }
     
-    if (stockfish_path.empty())
-        print_usage();
+    return accumulate / static_cast<double>(num_moves);
+}
+
+Color starting_color(int n_ply, Color ending_color)
+{
+    // operator~ toggles the color.
+    if (n_ply % 2 == 0) { return ~ending_color; }
+    else { return ending_color; }
+}
+
+int main(int argc, char * const argv[])
+{
+    auto args = Arguments(argc, argv);
+    auto stock = Stock(args.engine(), args.init_fen());
     
-    for (int i = optind; i < argc; i++) {
-        starting_moves.push_back(argv[i]);
-    }
-    if (starting_moves.empty()) line_flag = false;
-    
-    if (int r = checkFEN(FEN.c_str()) < 0) {
-        std::cout << "Please enter a valid FEN string: Bad FEN Err: " << r << std::endl;
-        exit(-1);
-    }
-    
-    auto stock = Stock(stockfish_path);
+    auto moves = args.translate_moves(stock);
     stock.Start();
-    stock.SetNewPosition(FEN);
     
-    if (line_flag)
+    int depth = args.depth();
+    if (args.whole_line()) 
     {
+        std::cout << "Line analysis:" << std::endl;
         std::cout << "Loaded Starting Position: \n" << stock.pos << std::endl;
-        std::vector<double> sharpnesses {};
-        sharpnesses.reserve(starting_moves.size()+1);
+//        std::cout << "Eval: " << stock.EvalPosition(depth, -1) << " (depth: " << depth << ")" << std::endl;
+        end_position_sharpness(stock, {}, depth);
+        // just compute the lines, then analyse.
+        auto sharpness = whole_line_sharpness(stock, moves, depth);
+        std::cout << "Sharpness by Move:" << std::endl;
+        stock.SetPosition(args.init_fen());
         
-        auto [ratio, blunders] = stock.PositionSharpness(depth, blunder_threshold, mistake_threshold,
-                                               inaccuracy_threshold);
-        sharpnesses.emplace(sharpnesses.end(), ratio);
-        std::cout << "Eval: " << stock.EvalPosition(depth, -1) << " (depth: " << depth << ")" << std::endl;
-        std::cout << "starting pos - sharpness: " << ratio << '\n';
-        
-        for (const auto& ms : starting_moves) {
-            Move mm = short_alg ? Utils::alg_to_move(stock.pos, ms)
-                                : Utils::long_alg_to_move(stock.pos, ms);
-            
-            stock.pos.do_move(mm);
-            auto num_moves = stock.GetMoves().size();
-            auto [ratio, blunders] = stock.PositionSharpness(depth, blunder_threshold, mistake_threshold,
-                                                   inaccuracy_threshold);
-            
-            std::cout << " ms :\t blunders: " << blunders << " sharpness: " << ratio << '\n';
-            // ratio = bad_moves/(good_moves + bad_moves) and num_moves - blunders = good_moves + bad_moves.
-            auto bad_moves = ratio*(num_moves-blunders);
-            auto good_moves = num_moves-blunders-bad_moves;
-            std::cout << "\t bad_moves: " << bad_moves << " good moves: " << good_moves << '\n';
-            sharpnesses.emplace(sharpnesses.end(), ratio);
-            
+        // sharpness also has the sharpness for the starting position. while moves do not.
+        //TODO: make this sturdier
+        for (int i {1}; i < sharpness.size(); i++) {
+            std::cout << "( " << Utils::to_alg(stock.pos, moves[i-1]) << " ) " << sharpness[i] << std::endl;
+            stock.pos.do_move(moves[i-1]);
         }
-        // TODO, split white and black averages
-        double w_average_s = 0;
-        double b_average_s = 0;
-        for (int i = 0; i < sharpnesses.size(); i++) {
-            w_average_s += sharpnesses[i];
-        }
-        w_average_s /= sharpnesses.size()+1;
-        std::cout << " Average line sharpness: " << w_average_s << '\n';
         
+        auto start_col = starting_color(sharpness.size(), stock.pos.side_to_move());
+        auto white_sharp_avg = average_sharpness(sharpness, WHITE, start_col);
+        auto black_sharp_avg = average_sharpness(sharpness, BLACK, start_col);
+         
+        std::cout << "White has an average line sharpness of: " << white_sharp_avg << std::endl;
+        std::cout << "Black has an average line sharpness of: " << black_sharp_avg << std::endl;
     }
-    else if (generate_line_flag)
+    else if (args.generate_line())
     {
-        advancePosition(stock.pos, starting_moves, !short_alg);
-        std::cout << stock.pos << std::endl;
-        auto line = stock.GenerateSharpLine(generate_line_length, depth, blunder_threshold, mistake_threshold, inaccuracy_threshold);
+        // same here
+//        stock.AdvancePosition(starting_moves, !short_alg);
+//        std::cout << stock.pos << std::endl;
+//        auto line = stock.GenerateSharpLine(generate_line_length, depth);
     }
-    else
-    {
-        advancePosition(stock.pos, starting_moves, !short_alg);
-        std::cout << stock.pos << std::endl;
+    else {
         
-        auto [ratio, blunders] =
-        stock.PositionSharpness(depth, blunder_threshold, mistake_threshold, inaccuracy_threshold);
-
-        auto moves = stock.GetMoves();
-        auto evals = stock.EvalMoves(moves, depth);
-        auto num_moves = moves.size();
-        auto bad_moves = ratio*(num_moves-blunders);
-        auto ok_moves = num_moves-blunders-bad_moves;
-        // print the ratio
-        
-        double base_eval = stock.EvalPosition(depth, -1);
-        std::cout << "Eval: " <<base_eval << " (depth: " << depth << ")" << std::endl;
-        std::cout << "In This position there are " << num_moves << " possible moves.\n"
-                  << (stock.pos.side_to_move() ? "Black" : "White") << " to move" << std::endl;
-        std::cout << "Bad moves: " << bad_moves << " (loss >= " << mistake_threshold << ")\n";
-        std::cout << "Ok moves: " << ok_moves << " (loss < " << inaccuracy_threshold << ")\n";
-        std::cout << "blunders: " << blunders << "\n";
-        std::cout << "Sharpness ratio of: " << "(bad/(ok+bad)) " << bad_moves <<
-        "/(" << ok_moves << "+" << bad_moves << ") = " << bad_moves/(ok_moves+bad_moves) << std::endl;
-        
-        std::cout << "Good Moves: " << '\n';
-        // show the "better than inaccuracies" moves.
-        auto mi = moves.begin();
-        auto ei = evals.begin();
-        for (int i = 0; i < moves.size(); i++) {
-            auto m = *mi;
-            auto e = *ei;
-            
-            std::cout << "[" << e << "]\t";
-            std::cout << Utils::to_alg(stock.pos, m) << " (" << Utils::to_long_alg(m) << ")" << '\n';
-
-//            auto delta = std::abs(base_eval - e);
-//            if (delta <= good_move_delta_threshold){
-//                std::cout << "[" << e << "]\t";
-//                std::cout << Utils::to_alg(stock.pos, m) << " (" << Utils::to_long_alg(m) << ")" << '\n';
-//            }
-            
-            if (ei < evals.end() && mi < moves.end()) { ei++; mi++; }
+        std::cout << "Sharpness analysis:" << std::endl;
+        std::cout << "stepping through moves..." << std::endl;
+        end_position_sharpness(stock, moves, depth);
+        print_moves(stock, depth);
+    }
+    
+    if (args.interactive()) {
+        std::string input {};
+        while (true) {
+            std::getline(std::cin, input);
+            if (input.empty()) continue;
+            if (input == "exit") break;
+            // send commands to stockfish directly
+            stock.send_command(input);
+            stock.Read("", 1500);
+            Utils::print_output(stock.output);
         }
     }
-    
-    
-    
-//    std::string input {};
-//    while (true) {
-//        std::getline(std::cin, input);
-//        if (input.empty()) continue;
-//        if (input == "exit") break;
-//        // valid fen, run the program again
-//        if (checkFEN(input.c_str()) == 0) {
-//            std::cout << "sadly this feature is still not implemented" << std::endl;
-//        } else { // send commands to stockfish directly
-//            stock.send_command(input);
-//            stock.Read("", 1500);
-//            Utils::print_output(stock.output);
-//        }
-//    }
 }

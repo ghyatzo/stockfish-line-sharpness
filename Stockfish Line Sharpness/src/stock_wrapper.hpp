@@ -10,8 +10,9 @@
 
 #include <stdio.h>
 #include <string>
-#include "utils.hpp"
+
 #include "../ext/minimal-process-piping/sys_process.h"
+
 #include "mini_stock/bitboard.h"
 #include "mini_stock/position.h"
 #include "mini_stock/movegen.h"
@@ -25,33 +26,28 @@ struct StockOptions {
 
 class Stock : public System::Process {
 public:
-    Stock(const std::string command);
+    Stock(const std::string &command, const std::string &FEN);
     Stock(const Stock&) = delete;
     Stock& operator=(const Stock&) = delete;
     
-    void Start();
-    void Start(const StockOptions & opts);
+    MoveList<LEGAL> GetMoves() const { return MoveList<LEGAL>(pos); }
+    const StockOptions& GetOptions() const { return opts_; }
     void SetOption(const std::string & optname, const std::string & optvalue);
-    bool Read(const std::string &expected, int timeout_ms = -1);
-    void SetNewPosition(const std::string &FEN);
-    MoveList<LEGAL> GetMoves();
+
+    void Start();
+    void Start(const StockOptions&);
+    bool Read(const std::string & expected, int timeout_ms = -1);
+    
+    void SetPosition(const std::string &FEN);
+    void SetNewPosition(const std::string & FEN);
+    void AdvancePosition(const std::vector<Move> &moves);
+    
+    std::string GetBestMove(int depth, int timeout_ms);
     double EvalPosition(int depth, int timeout_ms = -1);
     double EvalMove(Move m, int depth, int timeout_ms = -1);
-    std::vector<double> EvalMoves(MoveList<LEGAL> &moves, int depth, int timeout_ms = -1);
+    void EvalMoves(std::vector<double> &evals, const MoveList<LEGAL> &moves, int depth, int timeout_ms = -1);
+    std::vector<double> EvalMoves(const MoveList<LEGAL> &moves, int depth, int timeout_ms = -1);
     
-    std::tuple<double, double, double>
-    ComputeSharpness(const std::vector<double> &evals, double base_eval,
-                     double blunders_th, double bad_th, double ok_th);
-    
-    double
-    MoveSharpness(Stockfish::Move m, int depth,
-                     double blunder_th, double bad_th, double ok_th);
-    
-    std::tuple<double, double>
-    PositionSharpness(int depth, double blunders_th, double bad_th, double ok_th);
-    
-    std::vector<std::string>
-    GenerateSharpLine(int line_length, int depth, double blund_th, double bad_th, double ok_th);
 public:
     Position pos;
     std::vector<std::string> output;

@@ -69,6 +69,14 @@ struct MoveList {
   bool contains(Move move) const {
     return std::find(begin(), end(), move) != end();
   }
+    ExtMove& operator[](std::size_t idx) {
+        assert(moveList + idx <= last);
+        return *(moveList + idx);
+    }
+    const ExtMove& operator[](std::size_t idx) const {
+        assert(moveList + idx <= last);
+        return *(moveList + idx);
+    }
 
 private:
   ExtMove moveList[MAX_MOVES], *last;
