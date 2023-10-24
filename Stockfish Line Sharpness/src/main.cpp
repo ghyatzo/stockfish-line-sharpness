@@ -93,7 +93,7 @@ public:
         {
             Stockfish::Move m { short_alg_ ? Utils::alg_to_move(tmp_pos, args_[i]) : Utils::long_alg_to_move(tmp_pos, args_[i]) };
             starting_moves.push_back(m);
-            tmp_pos.do_move(m);
+            tmp_pos.DoMove(m);
         }
         
         return starting_moves;
@@ -160,6 +160,7 @@ Stockfish::Color starting_color(int n_ply, Stockfish::Color ending_color)
 
 int main(int argc, char * const argv[])
 {
+
     auto args = Arguments(argc, argv);
     auto engine = Engine(args.engine_path());
     auto starting_pos = Position(args.init_fen());
@@ -182,7 +183,7 @@ int main(int argc, char * const argv[])
         //TODO: make this sturdier
         for (int i {1}; i < sharpness.size(); i++) {
             std::cout << "( " << Utils::to_alg(starting_pos, moves[i-1]) << " )\t" << sharpness[i] << std::endl;
-            starting_pos.do_move(moves[i-1]);
+            starting_pos.DoMove(moves[i-1]);
         }
         
         auto start_col = starting_color((int)sharpness.size(), starting_pos.side_to_move());

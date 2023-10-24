@@ -49,8 +49,8 @@ namespace Utils {
     std::string parse_score(const std::string & info_line);
     std::tuple<int, int, int> parse_wdl(const std::string & info_line);
     
-    Stockfish::Value cp_to_value(int cp);
-    int to_cp(Stockfish::Value v);
+    inline Stockfish::Value cp_to_value(int cp) { return Stockfish::Value(cp * NormalizeToPawnValue / 100); }
+    inline int to_cp(Stockfish::Value v) { return 100 * v / NormalizeToPawnValue; }
     double centipawns(Stockfish::Color col, const std::string &output);
     
     char pt_to_char(Stockfish::PieceType pt);

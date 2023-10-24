@@ -51,7 +51,7 @@ namespace Sharpness {
     {
         // how sharp is this move: playing this move generates a position, how sharp is that position?
         // how sharp is the resulting position for the adversary?
-        pos.do_move(m);
+        pos.DoMove(m);
         auto base_eval = engine.Eval(pos);
         auto evals = engine.Eval(pos.GetMoves(), pos);
         return MoveDistribution(evals, base_eval);

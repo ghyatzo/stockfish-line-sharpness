@@ -656,25 +656,25 @@ bool Position::gives_check(Move m) const {
 /// to a StateInfo object. The move is assumed to be legal. Pseudo-legal
 /// moves should be filtered out before this function is called.
 
-void Position::do_move(Move m, bool givesCheck) {
+void Position::do_move(Move m, StateInfo& newSt, bool givesCheck) {
 
   assert(is_ok(m));
-//  assert(&newSt != st);
+  assert(&newSt != st);
 
   Key k = st->key ^ Zobrist::side;
 
   // Copy some fields of the old state to our new StateInfo object except the
   // ones which are going to be recalculated from scratch anyway and then switch
   // our state pointer to point to the new (ready to be updated) state.
-//  std::memcpy(&newSt, st, offsetof(StateInfo, key));
-//  newSt.previous = st;
-//  st = &newSt;
+  std::memcpy(&newSt, st, offsetof(StateInfo, key));
+  newSt.previous = st;
+  st = &newSt;
 
   // Increment ply counters. In particular, rule50 will be reset to zero later on
   // in case of a capture or a pawn move.
-//  ++gamePly;
-//  ++st->rule50;
-//  ++st->pliesFromNull;
+  ++gamePly;
+  ++st->rule50;
+  ++st->pliesFromNull;
 
   // Used by NNUE
 //  st->accumulator.computed[WHITE] = false;
@@ -829,21 +829,21 @@ void Position::do_move(Move m, bool givesCheck) {
   // Calculate the repetition info. It is the ply distance from the previous
   // occurrence of the same position, negative in the 3-fold case, or zero
   // if the position was not repeated.
-//  st->repetition = 0;
-//  int end = std::min(st->rule50, st->pliesFromNull);
-//  if (end >= 4)
-//  {
-//      StateInfo* stp = st->previous->previous;
-//      for (int i = 4; i <= end; i += 2)
-//      {
-//          stp = stp->previous->previous;
-//          if (stp->key == st->key)
-//          {
-//              st->repetition = stp->repetition ? -i : i;
-//              break;
-//          }
-//      }
-//  }
+  st->repetition = 0;
+  int end = std::min(st->rule50, st->pliesFromNull);
+  if (end >= 4)
+  {
+      StateInfo* stp = st->previous->previous;
+      for (int i = 4; i <= end; i += 2)
+      {
+          stp = stp->previous->previous;
+          if (stp->key == st->key)
+          {
+              st->repetition = stp->repetition ? -i : i;
+              break;
+          }
+      }
+  }
 
   assert(pos_is_ok());
 }
@@ -906,8 +906,8 @@ void Position::undo_move(Move m) {
   }
 
   // Finally point our state pointer back to the previous state
-//  st = st->previous;
-//  --gamePly;
+  st = st->previous;
+  --gamePly;
 
   assert(pos_is_ok());
 }
@@ -947,41 +947,41 @@ void Position::do_castling(Color us, Square from, Square& to, Square& rfrom, Squ
 /// Position::do_null_move() is used to do a "null move": it flips
 /// the side to move without executing any move on the board.
 
-//void Position::do_null_move(StateInfo& newSt) {
-//
-//  assert(!checkers());
-//  assert(&newSt != st);
-//
+void Position::do_null_move(StateInfo& newSt) {
+
+  assert(!checkers());
+  assert(&newSt != st);
+
 //  std::memcpy(&newSt, st, offsetof(StateInfo, accumulator));
-//
-//  newSt.previous = st;
-//  st = &newSt;
-//
-//  st->dirtyPiece.dirty_num = 0;
-//  st->dirtyPiece.piece[0] = NO_PIECE; // Avoid checks in UpdateAccumulator()
+
+  newSt.previous = st;
+  st = &newSt;
+
+  st->dirtyPiece.dirty_num = 0;
+  st->dirtyPiece.piece[0] = NO_PIECE; // Avoid checks in UpdateAccumulator()
 //  st->accumulator.computed[WHITE] = false;
 //  st->accumulator.computed[BLACK] = false;
-//
-//  if (st->epSquare != SQ_NONE)
-//  {
-//      st->key ^= Zobrist::enpassant[file_of(st->epSquare)];
-//      st->epSquare = SQ_NONE;
-//  }
-//
-//  st->key ^= Zobrist::side;
-//  ++st->rule50;
+
+  if (st->epSquare != SQ_NONE)
+  {
+      st->key ^= Zobrist::enpassant[file_of(st->epSquare)];
+      st->epSquare = SQ_NONE;
+  }
+
+  st->key ^= Zobrist::side;
+  ++st->rule50;
 //  prefetch(TT.first_entry(key()));
-//
-//  st->pliesFromNull = 0;
-//
-//  sideToMove = ~sideToMove;
-//
-//  set_check_info();
-//
-//  st->repetition = 0;
-//
-//  assert(pos_is_ok());
-//}
+
+  st->pliesFromNull = 0;
+
+  sideToMove = ~sideToMove;
+
+  set_check_info();
+
+  st->repetition = 0;
+
+  assert(pos_is_ok());
+}
 
 
 /// Position::undo_null_move() must be used to undo a "null move"

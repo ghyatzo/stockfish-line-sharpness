@@ -9,6 +9,7 @@
 #define position_hpp
 
 #include <stdio.h>
+#include <deque>
 
 #include "mini_stock/bitboard.h"
 #include "mini_stock/position.h"
@@ -22,9 +23,10 @@ public:
     inline Stockfish::MoveList<Stockfish::LEGAL> GetMoves() const { return Stockfish::MoveList<Stockfish::LEGAL>(*this); }
     
     Position& Set(const std::string &FEN);
+    void DoMove(Stockfish::Move m);
     Position& Advance(const std::vector<Stockfish::Move> &moves);
 private:
-    Stockfish::StateInfo si_;
+    std::unique_ptr<std::deque<Stockfish::StateInfo>> StateInfoList_;
 };
 
 

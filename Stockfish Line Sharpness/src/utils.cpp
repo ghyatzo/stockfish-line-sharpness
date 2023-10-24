@@ -317,9 +317,6 @@ namespace Utils {
         throw std::runtime_error("failed to parse WDL score: bad format. (make sure to enable the UCI_showWDL option).");
     }
     
-    Value cp_to_value(int cp) { return Value(cp * NormalizeToPawnValue / 100); };
-    int to_cp(Value v) { return 100 * v / NormalizeToPawnValue; }
-    
     double centipawns(Color col, const std::string &output)
     {
         // normalise centipawns and mate values to a singol decimal value.

@@ -26,7 +26,7 @@ std::vector<double> LineSharpness(Engine &engine, const std::vector<Stockfish::M
     
     for (int count {}; const auto mm : moves) {
         PROGRESS_BAR(count)
-        tmp.do_move(mm);
+        tmp.DoMove(mm);
         ratio = Sharpness::Ratio(Sharpness::ComputePosition(engine, tmp));
         sharpnesses.emplace_back(ratio);
         

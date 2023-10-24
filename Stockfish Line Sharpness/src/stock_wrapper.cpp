@@ -35,52 +35,52 @@ void Engine::Start() { Start(opts_); }
 void Engine::Start(const StockOptions &opts)
 {
     // we don't need to pass any argument, just call the executable.
-    const char * const argv[] = { this->command_.c_str(), NULL };
-    this->start(argv);
+    const char * const argv[] = { command_.c_str(), NULL };
+    start(argv);
     
     // start uci mode, check for "uciok", and the various options to parse.
-    this->send_command("uci");
-    if (this->read(output, "uciok") == false)
+    send_command("uci");
+    if (read(output, "uciok") == false)
         throw std::runtime_error("could not set stockfish to uci mode");
     
     SetOption("UCI_showWDL", opts.showWDL ? "true" : "false");
     SetOption("Threads", std::to_string(opts.threads));
     SetOption("MultiPV", std::to_string(opts.multiPV));
 
-    this->send_command("ucinewgame");
-    this->send_command("isready");
+    send_command("ucinewgame");
+    send_command("isready");
     
     // wait for the stockfish to be ready
-    this->read(output, "readyok");
+    read(output, "readyok");
 }
 
 void Engine::SetOption(const std::string & optname, const std::string & optvalue)
 {
-    if (optname == "UCI_showWDL" ) this->opts_.showWDL = optvalue == "true" ? true : false;
-    if (optname == "Threads" ) this->opts_.threads = std::stoi(optvalue);
-    if (optname == "MultiPV" ) this->opts_.multiPV = std::stoi(optvalue);
+    if (optname == "UCI_showWDL" ) opts_.showWDL = optvalue == "true" ? true : false;
+    if (optname == "Threads" ) opts_.threads = std::stoi(optvalue);
+    if (optname == "MultiPV" ) opts_.multiPV = std::stoi(optvalue);
         
-    this->send_command("setoption " + optname + " value " + optvalue);
+    send_command("setoption " + optname + " value " + optvalue);
 }
 
 bool Engine::Read(const std::string &expected, std::chrono::milliseconds timeout)
 {
-    return this->read(output, expected, int(timeout.count()));
+    return read(output, expected, int(timeout.count()));
 }
 
 void Engine::NewGame()
 {
-    this->send_command("ucinewgame");
-    this->send_command("isready");
+    send_command("ucinewgame");
+    send_command("isready");
     
     // wait for stockfish to be ready
-    this->read(output, "readyok");
+    read(output, "readyok");
 }
 
 std::string Engine::GetBestMove(Position& pos)
 {
-    this->send_command("position fen " + pos.fen());
-    this->send_command("go depth " + std::to_string(depth_));
+    send_command("position fen " + pos.fen());
+    send_command("go depth " + std::to_string(depth_));
     Read("bestmove");
     
     return Utils::parse_best_move(output);
@@ -88,8 +88,8 @@ std::string Engine::GetBestMove(Position& pos)
 
 double Engine::Eval(Position& pos)
 {
-    this->send_command("position fen " + pos.fen());
-    this->send_command("go depth " +  std::to_string(depth_));
+    send_command("position fen " + pos.fen());
+    send_command("go depth " +  std::to_string(depth_));
     Read("bestmove");
     
     return Utils::centipawns(pos.side_to_move(), output[output.size()-2]);
@@ -98,8 +98,8 @@ double Engine::Eval(Position& pos)
 double Engine::Eval(Stockfish::Move m, Position& pos)
 {
     // evaluates the move without changing pos.
-    this->send_command("position fen " + pos.fen() + " moves " + Utils::to_long_alg(m));
-    this->send_command("go depth " + std::to_string(depth_));
+    send_command("position fen " + pos.fen() + " moves " + Utils::to_long_alg(m));
+    send_command("go depth " + std::to_string(depth_));
     Read("bestmove");
     
     // measuring the first depths takes less than a ms, so we're safe.

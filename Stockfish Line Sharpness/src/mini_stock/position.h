@@ -69,7 +69,7 @@ using StateListPtr = std::unique_ptr<std::deque<StateInfo>>;
 
 
 /// Position class stores information regarding the board representation as
-/// pieces, side to move, hash keys, castling info, etc. Important methods are
+/// pieces, side to move, hash keys, castling info,, etc. Important methods are
 /// do_move() and undo_move(), used by the search to update node info when
 /// traversing the search tree.
 class Thread;
@@ -127,8 +127,8 @@ public:
   Piece captured_piece() const;
 
   // Doing and undoing moves
-  void do_move(Move m);
-  void do_move(Move m, bool givesCheck);
+  void do_move(Move m, StateInfo& newSt);
+  void do_move(Move m, StateInfo& newSt, bool givesCheck);
   void undo_move(Move m);
   void do_null_move(StateInfo& newSt);
   void undo_null_move();
@@ -383,8 +383,8 @@ inline void Position::move_piece(Square from, Square to) {
   board[to] = pc;
 }
 
-inline void Position::do_move(Move m) {
-  do_move(m, gives_check(m));
+inline void Position::do_move(Move m, StateInfo& newSt) {
+  do_move(m, newSt, gives_check(m));
 }
 
 inline StateInfo* Position::state() const {
