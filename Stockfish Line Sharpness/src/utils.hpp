@@ -17,8 +17,11 @@
 
 //#define PROGRESS_BAR(N, TOTAL) std::cout << std::string(TOTAL+2+2+std::floor(log10(N))+std::floor(log10(TOTAL)), ' ') << "\r" << \
 //"[" << std::string(N, 'o') << std::string(TOTAL-N, '.') << "] " << N << "/" << TOTAL << "\r" << std::flush;
-#define PROGRESS_BAR(N) std::cout << std::string(N, ' ') << "\r" << \
-"[" << std::string(N%6, '.') << std::string(5-(N%6), ' ') << "] " << "\r" << std::flush;
+#define PROGRESS_BAR(count) { \
+auto N = count; \
+std::cout << std::string(N, ' ') << "\r" << \
+"[" << std::string(N%6, '.') << std::string(5-(N%6), ' ') << "] " << "\r" << std::flush; \
+}
 
 
 static const auto MOVE_NONE_STR = "(none)";
@@ -46,14 +49,15 @@ namespace Utils {
     
     void print_output(const std::vector<std::string> & output, std::string prefix = "> ");
     std::string parse_best_move(const std::vector<std::string> & output);
-    std::string parse_score(const std::string & info_line);
-    std::tuple<int, int, int> parse_wdl(const std::string & info_line);
+    std::string parse_score(const std::vector<std::string> & output);
+    std::tuple<int, int, int> parse_wdl(const std::vector<std::string> & output);
     
     inline Stockfish::Value cp_to_value(int cp) { return Stockfish::Value(cp * NormalizeToPawnValue / 100); }
     inline int to_cp(Stockfish::Value v) { return 100 * v / NormalizeToPawnValue; }
-    double centipawns(Stockfish::Color col, const std::string &output);
-    
-    char pt_to_char(Stockfish::PieceType pt);
+    double centipawns(Stockfish::Color col, const std::vector<std::string> & output);
+    double format_cp(Stockfish::Color col, double cp);
+    double lichess_cp_to_win(double cp);
+    double lc0_cp_to_win(double cp);
     
     void sort_evals_perm(std::vector<int> &perm, const std::vector<double> &evals);
     std::vector<int> sort_evals_perm(const std::vector<double> &evals);

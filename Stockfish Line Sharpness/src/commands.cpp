@@ -44,9 +44,9 @@ double PositionSharpness(Engine &engine, Position &pos)
     
     double base_eval = engine.Eval(pos);
     std::cout << "Eval: " << base_eval << " (depth: " << engine.Depth() << ")" << std::endl;
-    std::cout << "In This position there are " << movedist.total << " possible moves.\n"
+    std::cout << "In this position there are " << movedist.total << " possible moves.\n"
     << (pos.side_to_move() ? "Black" : "White") << " to move" << std::endl;
-    std::cout << "Bad moves: " << movedist.bad << " (loss >= " << MISTAKE_THRESHOLD << ")\n";
+    std::cout << "\nBad moves: " << movedist.bad << " (loss >= " << MISTAKE_THRESHOLD << ")\n";
     std::cout << "Ok moves: " << movedist.good << " (loss < " << INACCURACY_THRESHOLD << ")\n";
     std::cout << "blunders: " << movedist.blunders << "\n";
     std::cout << "Sharpness ratio of: " << Sharpness::Ratio(movedist) << std::endl;

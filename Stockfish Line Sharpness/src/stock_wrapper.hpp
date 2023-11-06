@@ -18,6 +18,7 @@
 #include "mini_stock/movegen.h"
 
 #include "position.hpp"
+#include "utils.hpp"
 
 struct StockOptions {
     int threads;
@@ -36,7 +37,7 @@ public:
     void SetOption(const std::string & optname, const std::string & optvalue);
     
     inline int Depth() const { return depth_; }
-    inline void Depth(int depth) { depth_ = depth; }
+    inline int Depth(int depth) { depth_ = depth; return depth_; }
 
     void Start();
     void Start(const StockOptions&);
@@ -48,6 +49,27 @@ public:
     std::string GetBestMove(Position&);
     double Eval(Position&);
     double Eval(Stockfish::Move, Position&);
+    
+    template<typename cp_to_win>
+    double Eval(Position & pos) {
+        send_command("position fen " + pos.fen());
+        send_command("go depth " +  std::to_string(depth_));
+        Read("bestmove");
+        
+        return cp_to_win(Utils::centipawns(pos.side_to_move(), output));
+    }
+    template<typename cp_to_win>
+    double Eval(Stockfish::Move m, Position& pos)
+    {
+        // evaluates the move without changing pos.
+        send_command("position fen " + pos.fen() + " moves " + Utils::to_long_alg(m));
+        send_command("go depth " + std::to_string(depth_));
+        Read("bestmove");
+        
+        // measuring the first depths takes less than a ms, so we're safe.
+        return cp_to_win(Utils::centipawns(~pos.side_to_move(), output));
+    }
+    
     void Eval(std::vector<double> &evals, const Stockfish::MoveList<Stockfish::LEGAL>&, Position&);
     std::vector<double> Eval(const Stockfish::MoveList<Stockfish::LEGAL>&, Position&);
     

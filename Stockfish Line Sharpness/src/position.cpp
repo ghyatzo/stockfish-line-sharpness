@@ -43,6 +43,11 @@ void Position::DoMove(Stockfish::Move m) {
     do_move(m, StateInfoList_->back());
 }
 
+void Position::UndoMove(Stockfish::Move m) {
+    undo_move(m);
+    StateInfoList_->pop_back();
+}
+
 Position& Position::Advance(const std::vector<Stockfish::Move> &moves)
 {
     for (const auto mm : moves) { DoMove(mm); }

@@ -26,8 +26,7 @@ namespace Sharpness {
         double blunders {};
         for (auto e : evals) {
             double delta = std::abs(base_eval - e);
-            if (delta >= BLUNDER_THRESHOLD) { blunders++; continue; }
-            
+            if (delta >= BLUNDER_THRESHOLD)  { blunders++; continue; }
             if (delta <= INACCURACY_THRESHOLD) { ok_moves++; continue; }
             if (delta > INACCURACY_THRESHOLD && delta <= MISTAKE_THRESHOLD) {
                 ok_moves += 0.5; bad_moves += 0.5; continue; }
@@ -54,6 +53,8 @@ namespace Sharpness {
         pos.DoMove(m);
         auto base_eval = engine.Eval(pos);
         auto evals = engine.Eval(pos.GetMoves(), pos);
+        pos.UndoMove(m);
+        
         return MoveDistribution(evals, base_eval);
     }
     
@@ -73,6 +74,8 @@ namespace Sharpness {
         auto good_moves = total_moves-blunders-bad_moves;
         return {good_moves, bad_moves, static_cast<double>(blunders), static_cast<double>(total_moves)};
     }
+    
+    // TODO: Make a sharpness metric that compares the WDL changes for the moves in a position.
     
     double Complexity(Engine& engine, Position& pos, int max_depth)
     {
@@ -104,50 +107,52 @@ namespace Sharpness {
     }
     
     
-
+    // TODO: IDEA: Sharp Line generation:
+    // Starting from a position, select the move with highest sharpness for the opposing color, and the best response for the opposing color.
+    // i.e. white to play, choose the move that is sharpest for black, and then pick the best black response for that move, go on until N moves are generated.
     
+    std::vector<std::string>
+    GenerateLine(size_t line_length, Position& pos, Engine& engine)
+    {
+        std::vector<std::string> line;
+        // generate a sharp line starting from the current position.
+        
+        for (int i = 0; i < line_length; i++) {
+            
+            Stockfish::Move sharpest_move {};
+            double sharpest_move_sharpness {};
+            double sharpness {};
+            auto moves = pos.GetMoves();
+            auto base_eval = engine.Eval(pos);
+            
+            for (auto m : moves) {
+                // We have to filter the moves that do not throw the game.
+                // Otherwise, THIS DOES NOT WORK, When computing the sharpest move, this means that we will do a move that maximises the sharpness of the position that follows that move.
+                // The way we compute the sharpness is by comparing bad and good moves, therefore, a move that makes almost all moves bad for the opponent is very sharp.
+                // But if I hang a piece, every move the opponent does that does not take the hanging piece is considered bad, resulting in a very high sharpness.
+                auto move_eval = engine.Eval(m, pos);
+                if (abs(base_eval-move_eval) >= INACCURACY_THRESHOLD) continue;
+                
+                sharpness = Ratio(ComputeMove(m, engine, pos));
+                if (sharpest_move_sharpness < sharpness) {
+                    sharpest_move = m;
+                    sharpest_move_sharpness = sharpness;
+                }
+            }
+
+            line.push_back(Utils::to_alg(pos, sharpest_move));
+            std::cout << i << ". " << line.back() << " ";
+            pos.DoMove(sharpest_move);
+            
+            // calculate the response
+            auto best_response = engine.GetBestMove(pos);
+            line.push_back(Utils::long_to_alg(pos, best_response));
+            std::cout << line.back() << std::endl;
+            pos.DoMove(Utils::long_alg_to_move(pos, best_response));
+        }
+        std::cout << '\n';
+        
+        return line;
+    }
 
 }
-// TODO: IDEA: Sharp Line generation:
-// Starting from a position, select the move with highest sharpness for the opposing color, and the best response for the opposing color.
-// i.e. white to play, choose the move that is sharpest for black, and then pick the best black response for that move, go on until N moves are generated.
-
-//std::vector<std::string>
-//GenerateSharpLine(int line_length, int depth)
-//{
-//    std::vector<std::string> line;
-//    // generate a sharp line starting from the current position.
-//    for (int i = 0; i < line_length; i++) {
-//        
-//        auto moves = GetMoves();
-//        Stockfish::Move sharpest_move {};
-//        double sharpest_move_sharpness {};
-//        double sharpness {};
-//        for (auto m : moves) {
-//            // highest sharpness is the amount of blunders and bad moves in all of the moves (for now)
-//            sharpness = MoveSharpness(m, depth);
-//            if (sharpest_move_sharpness < sharpness) {
-//                sharpest_move = m;
-//                sharpest_move_sharpness = sharpness;
-//            }
-//        }
-//        line.push_back(Utils::to_alg(pos, sharpest_move));
-//        pos.do_move(sharpest_move);
-//        
-//        // calculate the response
-//        this->send_command("position fen " + pos.fen());
-//        this->send_command("go depth " +  std::to_string(depth));
-//        this->read(output, "bestmove", -1);
-//        
-//        // super janky, poi famo un parser come si deve eh
-//        auto best_response_str = output[output.size()-1];
-//        auto best_response = best_response_str.substr(9, 4);
-//        
-//        line.push_back(Utils::long_to_alg(pos, best_response));
-//        std::cout << i << ". " << sharpest_move << " " << Utils::long_to_alg(pos, best_response) << " ";
-//        pos.do_move(Utils::long_alg_to_move(pos, best_response));
-//    }
-//    std::cout << '\n';
-//    
-//    return line;
-//}

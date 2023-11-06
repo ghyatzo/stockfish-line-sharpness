@@ -78,6 +78,7 @@ public:
     bool interactive() {return interactive_;}
     bool whole_line() {return whole_line_;}
     bool generate_line() {return generate_line_;}
+    size_t gen_line_length() {return generate_line_length_;}
     
     int depth() {return depth_;}
     size_t size() {return args_.size();}
@@ -168,12 +169,11 @@ int main(int argc, char * const argv[])
     auto moves = args.translate_moves(starting_pos);
     engine.Start();
     
-    int depth = args.depth();
     if (args.whole_line()) 
     {
         std::cout << "Line analysis:" << std::endl;
         std::cout << "Loaded Starting Position: \n" << starting_pos << std::endl;
-//        std::cout << "Eval: " << engine.EvalPosition(depth, -1) << " (depth: " << depth << ")" << std::endl;
+
         PositionSharpness(engine, starting_pos);
         // just compute the lines, then analyse.
         auto sharpness = LineSharpness(engine, moves, starting_pos);
@@ -195,10 +195,14 @@ int main(int argc, char * const argv[])
     }
     else if (args.generate_line())
     {
-        // same here
-//        engine.AdvancePosition(starting_moves, !short_alg);
-//        std::cout << engine.pos << std::endl;
-//        auto line = engine.GenerateSharpLine(generate_line_length, depth);
+        std::cout << "Sharp Line Generation" << std::endl;
+        std::cout << "stepping through moves..." << std::endl;
+        starting_pos.Advance(moves);
+        std::cout << starting_pos << std::endl;
+
+        auto line = Sharpness::GenerateLine(args.gen_line_length(), starting_pos, engine);
+        
+        Utils::print_output(line);
     }
     else {
         

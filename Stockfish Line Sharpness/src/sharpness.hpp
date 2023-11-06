@@ -38,7 +38,8 @@ namespace Sharpness {
     MoveDist ExpandRatio(const double ratio, const double blunders, const double total_moves);
     
     double Complexity(Engine& engine, Position& pos, int max_depth);
-
+    std::vector<std::string>
+    GenerateLine(size_t line_length, Position& pos, Engine& engine);
     
 }
 #endif /* sharpness_hpp */

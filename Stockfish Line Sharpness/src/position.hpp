@@ -24,6 +24,7 @@ public:
     
     Position& Set(const std::string &FEN);
     void DoMove(Stockfish::Move m);
+    void UndoMove(Stockfish::Move m);
     Position& Advance(const std::vector<Stockfish::Move> &moves);
 private:
     std::unique_ptr<std::deque<Stockfish::StateInfo>> StateInfoList_;

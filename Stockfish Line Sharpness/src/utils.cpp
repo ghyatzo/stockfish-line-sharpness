@@ -285,41 +285,47 @@ namespace Utils {
     }
     
     // TODO: support multiPV, gotta select manually for now (maybe another function?)
-    std::string parse_score(const std::string & info_line)
+    std::string parse_score(const std::vector<std::string> & output)
     {
-        std::istringstream is {info_line};
         std::string token;
-        while (is >> std::skipws >> token) {
-            if (token == "cp") {
-                is >> std::skipws >> token;
-                return token;
-            }
-            if (token == "mate") {
-                is >> std::skipws >> token;
-                //append an "m" to indicate mates
-                return token+"m";
+        std::istringstream is;
+        // returns the score from the last relevant printed line.
+        for (const auto& s: std::views::reverse(output)) {
+            is.str(s);
+            while (is >> std::skipws >> token) {
+                if (token == "cp") {
+                    is >> std::skipws >> token;
+                    return token;
+                }
+                if (token == "mate") {
+                    is >> std::skipws >> token;
+                    //append an "m" to indicate mates
+                    return token+"m";
+                }
             }
         }
         throw std::runtime_error("failed to parse cp/mate score: bad format.");
     }
     
-    std::tuple<int, int, int> parse_wdl(const std::string & info_line)
+    std::tuple<int, int, int> parse_wdl(const std::vector<std::string> & output)
     {
-        std::istringstream is {info_line};
         std::string token;
+        std::istringstream is;
         int W, D, L;
-        while (is >> std::skipws >> token) {
-            if (token == "wdl") {
-                is >> W >> D >> L;
-                return std::make_tuple(W, D, L);
+        for (const auto& s: std::views::reverse(output)) {
+            while (is >> std::skipws >> token) {
+                if (token == "wdl") {
+                    is >> W >> D >> L;
+                    return std::make_tuple(W, D, L);
+                }
             }
         }
         throw std::runtime_error("failed to parse WDL score: bad format. (make sure to enable the UCI_showWDL option).");
     }
     
-    double centipawns(Color col, const std::string &output)
+    double centipawns(Stockfish::Color col, const std::vector<std::string> &output)
     {
-        // normalise centipawns and mate values to a singol decimal value.
+        // normalise centipawns and mate values to a single decimal value.
         std::string score { parse_score(output) };
         Value v {};
         if (score.ends_with('m')) {
@@ -329,10 +335,38 @@ namespace Utils {
             v = cp_to_value(std::stoi(score));
         }
         
-        double cp = to_cp(v);
-        return col == Color::BLACK ? -1*cp/100.0 : cp/100.0;
-        
+        return format_cp(col, to_cp(v));
     }
+    
+    double format_cp(Color col, double cp) {
+        return col == Color::BLACK ? -1*cp/100.0 : cp/100.0;
+    }
+    
+    // TODO: probably useless since we can extract wdls directly, IF the engine provides them.
+    double lichess_cp_to_win(double cp) {
+        // see: https://lichess.org/page/accuracy
+        // the coefficient below was obtained by analysing real games.
+        // It kind of depends on the ELO of the players.
+        // A higher coefficient means a steeper curve in the middle, meaning that small mistakes are more punishing.
+        // Low ELO players are closer to 0.002 while strong players hover aroung 0.0038
+        auto coeff = 0.00368208;
+        
+        return 0.5 + 0.5 * (2 / (1 + std::exp(-coeff * cp)) - 1);
+    }
+    
+    double lc0_cp_to_win(double cp) {
+        //see: https://lczero.org/dev/wiki/technical-explanation-of-leela-chess-zero/
+        //leela by default uses an expected outcome value Q of [-1,1], and uses the
+        //formula: cp = 111.714640912 * tan(1.5620688421 * Q) to translate between the two
+        // together with a the formula (Q+1)/2 to compute the win% the same way as stockfish.
+        // I inverted the formula so that we can have an alternative cp_to_win translation
+        // win = 0.5 * (arctan(x/c)/d + 1) where c = 111... and d = 1.56... blah blah
+        auto c = 111.714640912;
+        auto d = 1.5620688421;
+        
+        return 0.5 * (std::atan(cp/c) / d + 1);
+    }
+    
     void sort_evals_perm(std::vector<int> &perm, const std::vector<double> &evals)
     {
         std::sort(perm.begin(), perm.end(), [&](int a, int b){
