@@ -17,9 +17,9 @@
 // depending on the ELO, you might consider changing these values.
 // for now lets just put everything under one "bad move umbrella", all the blunders and all the mistakes.
 // inaccuracies are considered neutral, the rest is good moves.
-static const double BLUNDER_THRESHOLD = 3; // blunders
-static const double MISTAKE_THRESHOLD = 1.1; // mistakes (sono scarso dio caro).
-static const double INACCURACY_THRESHOLD = 0.5; // inaccuracy
+static constexpr double BLUNDER_THRESHOLD = 3; // blunders
+static constexpr double MISTAKE_THRESHOLD = 1.1; // mistakes (sono scarso dio caro).
+static constexpr double INACCURACY_THRESHOLD = 0.5; // inaccuracy
 
 struct MoveDist {
     double good;
@@ -30,7 +30,8 @@ struct MoveDist {
 
 namespace Sharpness {
     
-    MoveDist MoveDistribution(const std::vector<double> &evals, double base_eval);
+    MoveDist MoveDistributionCP(const std::vector<double> &evals, double base_eval);
+    MoveDist MoveDistributionWC(const std::vector<double> &evals, double base_eval);
     MoveDist ComputePosition(Engine &engine, Position &pos);
     MoveDist ComputeMove(Stockfish::Move m, Engine &engine, Position& pos);
     

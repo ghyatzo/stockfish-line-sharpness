@@ -274,9 +274,10 @@ namespace Utils {
         std::istringstream is;
         for (const auto& s : std::views::reverse(output)) { // bestmove is usually the last line.
             is.str(s);
-            while (is >> std::skipws >> token) {
+            is.clear();
+            while (is >> token) {
                 if (token == "bestmove") {
-                    is >> std::skipws >> token;
+                    is >> token;
                     return token;
                 }
             }
@@ -292,13 +293,14 @@ namespace Utils {
         // returns the score from the last relevant printed line.
         for (const auto& s: std::views::reverse(output)) {
             is.str(s);
-            while (is >> std::skipws >> token) {
+            is.clear();
+            while (is >> token) {
                 if (token == "cp") {
-                    is >> std::skipws >> token;
+                    is >> token;
                     return token;
                 }
                 if (token == "mate") {
-                    is >> std::skipws >> token;
+                    is >> token;
                     //append an "m" to indicate mates
                     return token+"m";
                 }
@@ -313,7 +315,9 @@ namespace Utils {
         std::istringstream is;
         int W, D, L;
         for (const auto& s: std::views::reverse(output)) {
-            while (is >> std::skipws >> token) {
+            is.str(s);
+            is.clear();
+            while (is >> token) {
                 if (token == "wdl") {
                     is >> W >> D >> L;
                     return std::make_tuple(W, D, L);
@@ -351,20 +355,22 @@ namespace Utils {
         // Low ELO players are closer to 0.002 while strong players hover aroung 0.0038
         auto coeff = 0.00368208;
         
-        return 0.5 + 0.5 * (2 / (1 + std::exp(-coeff * cp)) - 1);
+        // This maps cp to the [0,1] range
+        auto W = 0.5 + 0.5 * (2 / (1 + std::exp(-coeff * cp)) - 1);
+        
+        // map this to the [-1,1] range.
+        return 2*W+1;
     }
     
     double lc0_cp_to_win(double cp) {
         //see: https://lczero.org/dev/wiki/technical-explanation-of-leela-chess-zero/
         //leela by default uses an expected outcome value Q of [-1,1], and uses the
-        //formula: cp = 111.714640912 * tan(1.5620688421 * Q) to translate between the two
-        // together with a the formula (Q+1)/2 to compute the win% the same way as stockfish.
+        //formula: cp = 111.714640912 * tan(1.5620688421 * Q) to translate between the two.
         // I inverted the formula so that we can have an alternative cp_to_win translation
-        // win = 0.5 * (arctan(x/c)/d + 1) where c = 111... and d = 1.56... blah blah
         auto c = 111.714640912;
         auto d = 1.5620688421;
         
-        return 0.5 * (std::atan(cp/c) / d + 1);
+        return std::atan(cp/c) / d;
     }
     
     void sort_evals_perm(std::vector<int> &perm, const std::vector<double> &evals)

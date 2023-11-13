@@ -86,49 +86,49 @@ std::string Engine::GetBestMove(Position& pos)
     return Utils::parse_best_move(output);
 }
 
-// evaluates a position
-double Engine::Eval(Position& pos)
-{
-    send_command("position fen " + pos.fen());
-    send_command("go depth " +  std::to_string(depth_));
-    Read("bestmove");
-    
-    return Utils::centipawns(pos.side_to_move(), output);
-}
-
-//evaluates a move in a given position, by evaluating the position after the move.
-double Engine::Eval(Stockfish::Move m, Position& pos)
-{
-    // evaluates the move without changing pos.
-    send_command("position fen " + pos.fen() + " moves " + Utils::to_long_alg(m));
-    send_command("go depth " + std::to_string(depth_));
-    Read("bestmove");
-    
-    // measuring the first depths takes less than a ms, so we're safe.
-    return Utils::centipawns(~pos.side_to_move(), output);
-}
-
-// evaluates a list of legal moves in a single position.
-std::vector<double> Engine::Eval(const Stockfish::MoveList<Stockfish::LEGAL> &moves, Position& pos)
-{
-    std::vector<double> evals;
-    evals.reserve(moves.size());
-    for (int count {}; const auto m: moves) {
-        evals.emplace_back(Eval(m, pos));
-//        PROGRESS_BAR(count++);
-    }
-    return evals;
-}
-
-// In-place version of the function above.
-void Engine::Eval(std::vector<double> &evals, const Stockfish::MoveList<Stockfish::LEGAL> &moves, Position& pos)
-{
-    evals.resize(moves.size());
-    for (int count {}; const auto m: moves) {
-        evals.emplace(evals.begin()+count, Eval(m, pos));
-//        PROGRESS_BAR(count++);
-    }
-}
+//// evaluates a position
+//double Engine::Eval(Position& pos)
+//{
+//    send_command("position fen " + pos.fen());
+//    send_command("go depth " +  std::to_string(depth_));
+//    Read("bestmove");
+//    
+//    return Utils::centipawns(pos.side_to_move(), output);
+//}
+//
+////evaluates a move in a given position, by evaluating the position after the move.
+//double Engine::Eval(Stockfish::Move m, Position& pos)
+//{
+//    // evaluates the move without changing pos.
+//    send_command("position fen " + pos.fen() + " moves " + Utils::to_long_alg(m));
+//    send_command("go depth " + std::to_string(depth_));
+//    Read("bestmove");
+//    
+//    // measuring the first depths takes less than a ms, so we're safe.
+//    return Utils::centipawns(~pos.side_to_move(), output);
+//}
+//
+//// evaluates a list of legal moves in a single position.
+//std::vector<double> Engine::Eval(const Stockfish::MoveList<Stockfish::LEGAL> &moves, Position& pos)
+//{
+//    std::vector<double> evals;
+//    evals.reserve(moves.size());
+//    for (int count {}; const auto m: moves) {
+//        evals.emplace_back(Eval(m, pos));
+////        PROGRESS_BAR(count++);
+//    }
+//    return evals;
+//}
+//
+//// In-place version of the function above.
+//void Engine::Eval(std::vector<double> &evals, const Stockfish::MoveList<Stockfish::LEGAL> &moves, Position& pos)
+//{
+//    evals.resize(moves.size());
+//    for (int count {}; const auto m: moves) {
+//        evals.emplace(evals.begin()+count, Eval(m, pos));
+////        PROGRESS_BAR(count++);
+//    }
+//}
 
 
 

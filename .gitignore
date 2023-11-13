@@ -1,0 +1,7 @@
+*.xcodeproj
+DerivedData
+qperft.*
+test
+line_sharpness
+*.sh
+Stockfisf\ Line\ Sharpness/SHL

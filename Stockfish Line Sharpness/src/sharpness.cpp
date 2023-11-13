@@ -16,10 +16,12 @@
 #include "mini_stock/movegen.h"
 #include "mini_stock/position.h"
 
+static const auto WINC_THRESHOLD = Utils::lc0_cp_to_win(INACCURACY_THRESHOLD);
+
 namespace Sharpness {
     
     MoveDist
-    MoveDistribution(const std::vector<double> &evals, double base_eval)
+    MoveDistributionCP(const std::vector<double> &evals, double base_eval)
     {
         double ok_moves {};
         double bad_moves {};
@@ -37,12 +39,26 @@ namespace Sharpness {
     }
     
     MoveDist
+    MoveDistributionWC(const std::vector<double> &evals, double base_eval)
+    {
+        double ok_moves {};
+        double bad_moves {};
+        for (auto e : evals) {
+            double delta = std::abs(base_eval - e);
+            if (delta <= WINC_THRESHOLD) { ok_moves++; }
+            else { bad_moves++; }
+        }
+        
+        return {ok_moves, bad_moves, static_cast<double>(evals.size())};
+    }
+    
+    MoveDist
     ComputePosition(Engine &engine, Position& pos)
     {
         double base_eval = engine.Eval(pos);
         auto evals = engine.Eval(pos.GetMoves(), pos);
         
-        return MoveDistribution(evals, base_eval);
+        return MoveDistributionCP(evals, base_eval);
     }
     
     // TODO: these still needs work.
@@ -51,17 +67,16 @@ namespace Sharpness {
         // how sharp is this move: playing this move generates a position, how sharp is that position?
         // how sharp is the resulting position for the adversary?
         pos.DoMove(m);
-        auto base_eval = engine.Eval(pos);
-        auto evals = engine.Eval(pos.GetMoves(), pos);
+        auto move_dist = ComputePosition(engine, pos);
         pos.UndoMove(m);
         
-        return MoveDistribution(evals, base_eval);
+        return move_dist;
     }
     
     double Ratio(const MoveDist &movedist)
     {
-        // old iteration
-//        return (movedist.blunders + movedist.bad) / movedist.total_moves;
+        // old version
+        // return (movedist.blunders + movedist.bad) / movedist.total_moves;
         // last iteration, we want the ratio of (bad)/(ok+bad) moves, ignoring blunders
         return movedist.bad / (movedist.bad + movedist.good);
         

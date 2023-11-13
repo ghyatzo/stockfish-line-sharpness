@@ -205,7 +205,6 @@ int main(int argc, char * const argv[])
         Utils::print_output(line);
     }
     else {
-        
         std::cout << "Sharpness analysis:" << std::endl;
         std::cout << "stepping through moves..." << std::endl;
         starting_pos.Advance(moves);
