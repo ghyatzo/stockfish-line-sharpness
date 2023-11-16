@@ -16,49 +16,34 @@
 #include "mini_stock/movegen.h"
 #include "mini_stock/position.h"
 
-static const auto WINC_THRESHOLD = Utils::lc0_cp_to_win(INACCURACY_THRESHOLD);
+static const auto WINC_THRESHOLD = std::abs(Utils::lc0_cp_to_win(INACCURACY_THRESHOLD*100));
+static const auto WINC_BLUNDER_THRESHOLD = std::abs(Utils::lc0_cp_to_win(BLUNDER_THRESHOLD*100));
 
 namespace Sharpness {
     
     MoveDist
-    MoveDistributionCP(const std::vector<double> &evals, double base_eval)
+    MoveDistribution( const std::vector<double> &evals, double base_eval )
     {
         double ok_moves {};
         double bad_moves {};
-        double blunders {};
-        for (auto e : evals) {
-            double delta = std::abs(base_eval - e);
-            if (delta >= BLUNDER_THRESHOLD)  { blunders++; continue; }
-            if (delta <= INACCURACY_THRESHOLD) { ok_moves++; continue; }
-            if (delta > INACCURACY_THRESHOLD && delta <= MISTAKE_THRESHOLD) {
-                ok_moves += 0.5; bad_moves += 0.5; continue; }
-            if (delta > MISTAKE_THRESHOLD) { bad_moves++; }
-        }
-        
-        return {ok_moves, bad_moves, blunders, static_cast<double>(evals.size())};
-    }
-    
-    MoveDist
-    MoveDistributionWC(const std::vector<double> &evals, double base_eval)
-    {
-        double ok_moves {};
-        double bad_moves {};
-        for (auto e : evals) {
-            double delta = std::abs(base_eval - e);
-            if (delta <= WINC_THRESHOLD) { ok_moves++; }
+        for ( auto e : evals ) {
+            double delta = std::abs( base_eval - e );
+//            // ignore the especially bad moves...
+//            if (delta >= WINC_BLUNDER_THRESHOLD) continue;
+            if ( delta <= WINC_THRESHOLD ) { ok_moves++; }
             else { bad_moves++; }
         }
         
-        return {ok_moves, bad_moves, static_cast<double>(evals.size())};
+        return { ok_moves, bad_moves, static_cast<double>(evals.size()) };
     }
     
     MoveDist
     ComputePosition(Engine &engine, Position& pos)
     {
         double base_eval = engine.Eval(pos);
-        auto evals = engine.Eval(pos.GetMoves(), pos);
+        auto evals = engine.EvalMoves(pos.GetMoves(), pos);
         
-        return MoveDistributionCP(evals, base_eval);
+        return MoveDistribution(evals, base_eval);
     }
     
     // TODO: these still needs work.
@@ -75,19 +60,14 @@ namespace Sharpness {
     
     double Ratio(const MoveDist &movedist)
     {
-        // old version
+        // Version 1:
         // return (movedist.blunders + movedist.bad) / movedist.total_moves;
-        // last iteration, we want the ratio of (bad)/(ok+bad) moves, ignoring blunders
-        return movedist.bad / (movedist.bad + movedist.good);
+        // Version 2:
+        // return movedist.bad / (movedist.total);
+        // Version 3:
+        // return movedist.bad / (movedist.good + movedist.bad);
         
-    }
-    
-    MoveDist ExpandRatio(double ratio, double blunders, double total_moves)
-    {
-        // ratio = bad_moves/(good_moves + bad_moves) and num_moves - blunders = good_moves + bad_moves.
-        auto bad_moves = ratio*(total_moves-blunders);
-        auto good_moves = total_moves-blunders-bad_moves;
-        return {good_moves, bad_moves, static_cast<double>(blunders), static_cast<double>(total_moves)};
+        return (1.0 - movedist.good / movedist.bad);
     }
     
     // TODO: Make a sharpness metric that compares the WDL changes for the moves in a position.
@@ -95,8 +75,9 @@ namespace Sharpness {
     double Complexity(Engine& engine, Position& pos, int max_depth)
     {
         // computes the complexity of a position.
-        // see: Computer Analysis of World Chess Champions (M. Guld & I. Bratko)
+        // based on: Computer Analysis of World Chess Champions (M. Guld & I. Bratko)
         assert(max_depth > 2);
+        auto current_depth = engine.Depth();
         double complexity {};
         std::string old_best_move {};
         std::string best_move {};
@@ -106,19 +87,24 @@ namespace Sharpness {
         std::vector<double> evals(moves.size());
         std::vector<int> eval_perm(evals.size());
         std::iota(eval_perm.begin(), eval_perm.end(), 0);
+        int change_of_mind {};
         
         for(int d = 2; d < max_depth; d++) {
+            engine.Depth(d);
             best_move = engine.GetBestMove(pos);
             if (best_move != old_best_move) {
+                change_of_mind++;
                 old_best_move = best_move;
-                engine.Eval(evals, moves, pos);
-                Utils::sort_evals_perm(eval_perm, evals);
-                complexity += std::abs(evals[eval_perm[0]] - evals[eval_perm[1]]);
+                engine.EvalMoves(evals, moves, pos);
+                Utils::sort_evals_perm(eval_perm, evals, pos.side_to_move());
+                auto delta = std::abs(evals[eval_perm[0]] - evals[eval_perm[1]]);
+                complexity += delta;
             }
             old_best_move = best_move;
         }
         
-        return complexity;
+        engine.Depth(current_depth);
+        return change_of_mind;
     }
     
     
@@ -145,7 +131,7 @@ namespace Sharpness {
                 // Otherwise, THIS DOES NOT WORK, When computing the sharpest move, this means that we will do a move that maximises the sharpness of the position that follows that move.
                 // The way we compute the sharpness is by comparing bad and good moves, therefore, a move that makes almost all moves bad for the opponent is very sharp.
                 // But if I hang a piece, every move the opponent does that does not take the hanging piece is considered bad, resulting in a very high sharpness.
-                auto move_eval = engine.Eval(m, pos);
+                auto move_eval = engine.EvalMove(m, pos);
                 if (abs(base_eval-move_eval) >= INACCURACY_THRESHOLD) continue;
                 
                 sharpness = Ratio(ComputeMove(m, engine, pos));

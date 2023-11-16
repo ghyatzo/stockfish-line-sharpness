@@ -42,13 +42,12 @@ double PositionSharpness(Engine &engine, Position &pos)
     auto pos_complexity = Sharpness::Complexity(engine, pos, engine.Depth());
     // print the ratio
     
-    double base_eval = engine.Eval(pos, Utils::lc0_cp_to_win);
+    double base_eval = engine.Eval(pos);
     std::cout << "Eval: " << base_eval << " (depth: " << engine.Depth() << ")" << std::endl;
     std::cout << "In this position there are " << movedist.total << " possible moves.\n"
     << (pos.side_to_move() ? "Black" : "White") << " to move" << std::endl;
-    std::cout << "\nBad moves: " << movedist.bad << " (loss >= " << MISTAKE_THRESHOLD << ")\n";
-    std::cout << "Ok moves: " << movedist.good << " (loss < " << INACCURACY_THRESHOLD << ")\n";
-    std::cout << "blunders: " << movedist.blunders << "\n";
+    std::cout << "\nBad moves: " << movedist.bad << "\n";
+    std::cout << "Ok moves: " << movedist.good << " (|loss| < " << Utils::lc0_cp_to_win(INACCURACY_THRESHOLD*100) << ")\n";
     std::cout << "Sharpness ratio of: " << Sharpness::Ratio(movedist) << std::endl;
     std::cout << "Complexity score of: " << pos_complexity << std::endl;
     

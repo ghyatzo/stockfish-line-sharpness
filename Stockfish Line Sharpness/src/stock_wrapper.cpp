@@ -13,26 +13,7 @@
 #include "utils.hpp"
 #include "fen.hpp"
 
-// default to the starting position, if not FEN is passed.
-Engine::Engine(const std::string &path)
-: System::Process(path), output(), opts_(), depth_(15), timeout_(-1)
-{
-    // default options
-    opts_.multiPV = 1;
-    opts_.showWDL = true;
-    opts_.threads = 4;
-}
-Engine::Engine(const std::string &path, int depth, std::chrono::milliseconds timeout)
-: System::Process(path), output(), opts_(), depth_(depth), timeout_(timeout)
-{
-    // default options
-    opts_.multiPV = 1;
-    opts_.showWDL = true;
-    opts_.threads = 4;
-}
-
-void Engine::Start() { Start(opts_); }
-void Engine::Start(const StockOptions &opts)
+void Engine::Start(const EngineOptions &opts)
 {
     // we don't need to pass any argument, just call the executable.
     const char * const argv[] = { command_.c_str(), NULL };
@@ -40,7 +21,7 @@ void Engine::Start(const StockOptions &opts)
     
     // start uci mode, check for "uciok", and the various options to parse.
     send_command("uci");
-    if (read(output, "uciok") == false)
+    if (Read("uciok") == false)
         throw std::runtime_error("could not set stockfish to uci mode");
     
     SetOption("UCI_showWDL", opts.showWDL ? "true" : "false");
@@ -51,7 +32,7 @@ void Engine::Start(const StockOptions &opts)
     send_command("isready");
     
     // wait for the stockfish to be ready
-    read(output, "readyok");
+    Read("readyok");
 }
 
 void Engine::SetOption(const std::string & optname, const std::string & optvalue)
@@ -63,72 +44,57 @@ void Engine::SetOption(const std::string & optname, const std::string & optvalue
     send_command("setoption " + optname + " value " + optvalue);
 }
 
-bool Engine::Read(const std::string &expected, std::chrono::milliseconds timeout)
-{
-    return read(output, expected, int(timeout.count()));
-}
-
-void Engine::NewGame()
-{
-    send_command("ucinewgame");
-    send_command("isready");
-    
-    // wait for stockfish to be ready
-    read(output, "readyok");
-}
-
-std::string Engine::GetBestMove(Position& pos)
+std::string Engine::GetBestMove(const Position& pos)
 {
     send_command("position fen " + pos.fen());
     send_command("go depth " + std::to_string(depth_));
     Read("bestmove");
     
-    return Utils::parse_best_move(output);
+    return Utils::parse_best_move(output_);
 }
 
-//// evaluates a position
-//double Engine::Eval(Position& pos)
-//{
-//    send_command("position fen " + pos.fen());
-//    send_command("go depth " +  std::to_string(depth_));
-//    Read("bestmove");
-//    
-//    return Utils::centipawns(pos.side_to_move(), output);
-//}
-//
-////evaluates a move in a given position, by evaluating the position after the move.
-//double Engine::Eval(Stockfish::Move m, Position& pos)
-//{
-//    // evaluates the move without changing pos.
-//    send_command("position fen " + pos.fen() + " moves " + Utils::to_long_alg(m));
-//    send_command("go depth " + std::to_string(depth_));
-//    Read("bestmove");
-//    
-//    // measuring the first depths takes less than a ms, so we're safe.
-//    return Utils::centipawns(~pos.side_to_move(), output);
-//}
-//
-//// evaluates a list of legal moves in a single position.
-//std::vector<double> Engine::Eval(const Stockfish::MoveList<Stockfish::LEGAL> &moves, Position& pos)
-//{
-//    std::vector<double> evals;
-//    evals.reserve(moves.size());
-//    for (int count {}; const auto m: moves) {
-//        evals.emplace_back(Eval(m, pos));
-////        PROGRESS_BAR(count++);
-//    }
-//    return evals;
-//}
-//
-//// In-place version of the function above.
-//void Engine::Eval(std::vector<double> &evals, const Stockfish::MoveList<Stockfish::LEGAL> &moves, Position& pos)
-//{
-//    evals.resize(moves.size());
-//    for (int count {}; const auto m: moves) {
-//        evals.emplace(evals.begin()+count, Eval(m, pos));
-////        PROGRESS_BAR(count++);
-//    }
-//}
+// evaluates a position
+double Engine::Eval(const Position& pos)
+{
+    send_command("position fen " + pos.fen());
+    send_command("go depth " +  std::to_string(depth_));
+    Read("bestmove");
+    
+    return Utils::lc0_cp_to_win(Utils::centipawns(pos.side_to_move(), output_)*100);
+}
+
+//evaluates a move in a given position, by evaluating the position after the move.
+double Engine::EvalMove(Stockfish::Move m, Position& pos)
+{
+    // evaluates the move without changing pos.
+    send_command("position fen " + pos.fen() + " moves " + Utils::to_long_alg(m));
+    send_command("go depth " + std::to_string(depth_));
+    Read("bestmove");
+    
+    // measuring the first depths takes less than a ms, so we're safe.
+    return Utils::lc0_cp_to_win(Utils::centipawns(~pos.side_to_move(), output_)*100);
+}
+
+// In-place version of the function above.
+std::vector<double> Engine::EvalMoves(std::vector<double> &evals,
+                                      const Stockfish::MoveList<Stockfish::LEGAL> &moves, Position& pos)
+{
+    evals.resize(moves.size());
+    auto move = moves.begin();
+    for ( int idx {}; idx < moves.size(); idx++ ) {
+        evals[idx] = EvalMove(*(move + idx), pos);
+    }
+    return evals;
+}
+
+// evaluates a list of legal moves in a single position.
+std::vector<double> Engine::EvalMoves(const Stockfish::MoveList<Stockfish::LEGAL> &moves, Position& pos)
+{
+    std::vector<double> evals;
+    evals.reserve(moves.size());
+    return EvalMoves(evals, moves, pos);
+}
+
 
 
 

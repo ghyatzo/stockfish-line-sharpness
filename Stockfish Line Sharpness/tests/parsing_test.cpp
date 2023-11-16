@@ -38,7 +38,7 @@ int test_parsing()
         } std::cout << "Passed" << std::endl;
     }
     {
-        std::string score_line_cp = output_example[2];
+        std::vector<std::string> score_line_cp { output_example[2] };
         std::string score = Utils::parse_score(score_line_cp);
         auto cp = Utils::centipawns(Color::WHITE, score_line_cp);
         auto value = Utils::cp_to_value(cp * 100);
@@ -52,7 +52,7 @@ int test_parsing()
         } std::cout << "Passed" << std::endl;
     }
     {
-        std::string score_line_mate = output_example[1];
+        std::vector<std::string> score_line_mate {output_example[1]};
         auto score = Utils::parse_score(score_line_mate);
         auto cp = Utils::centipawns(Color::WHITE, score_line_mate);
         auto value = Utils::cp_to_value(cp * 100);

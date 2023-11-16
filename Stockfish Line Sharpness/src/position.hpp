@@ -20,7 +20,9 @@ public:
     Position();
     Position(const std::string &FEN);
     
-    inline Stockfish::MoveList<Stockfish::LEGAL> GetMoves() const { return Stockfish::MoveList<Stockfish::LEGAL>(*this); }
+    inline Stockfish::MoveList<Stockfish::LEGAL> GetMoves() const {
+        return Stockfish::MoveList<Stockfish::LEGAL>(*this);
+    }
     
     Position& Set(const std::string &FEN);
     void DoMove(Stockfish::Move m);

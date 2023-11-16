@@ -47,6 +47,10 @@ namespace Utils {
     Stockfish::Move alg_to_move(Position &pos, std::string m);
     Stockfish::Move long_alg_to_move(Position& pos, std::string m);
     
+    std::vector<Stockfish::Move> translate_moves(::Position& pos,
+                                                 std::vector<std::string> &moves,
+                                                 bool short_algebraic_notation = true);
+    
     void print_output(const std::vector<std::string> & output, std::string prefix = "> ");
     std::string parse_best_move(const std::vector<std::string> & output);
     std::string parse_score(const std::vector<std::string> & output);
@@ -59,8 +63,8 @@ namespace Utils {
     double lichess_cp_to_win(double cp);
     double lc0_cp_to_win(double cp);
     
-    void sort_evals_perm(std::vector<int> &perm, const std::vector<double> &evals);
-    std::vector<int> sort_evals_perm(const std::vector<double> &evals);
+    void sort_evals_perm(std::vector<int> &perm, const std::vector<double> &evals, Stockfish::Color col);
+    std::vector<int> sort_evals_perm(const std::vector<double> &evals, Stockfish::Color col);
 
 }
 

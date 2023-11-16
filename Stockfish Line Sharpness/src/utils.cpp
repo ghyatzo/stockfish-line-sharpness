@@ -258,6 +258,29 @@ namespace Utils {
         std::string long_alg = alg_to_long(pos, alg);
         return long_alg_to_move(pos, long_alg);
     }
+    
+    // Parse each move, depending on the notation and translate them to a Stockfish::Move for faster
+    // internal manipulation. By necessity we have to advance the position after each move.
+    // This ensures all passed moves are legal. After we reset to the intial position passed through the FEN.
+    std::vector<Stockfish::Move> translate_moves(::Position& pos,
+                                                 std::vector<std::string> &moves,
+                                                 bool short_algebraic_notation)
+    {
+        std::vector<Stockfish::Move> starting_moves;
+        ::Position tmp_pos {pos.fen()};
+        for (const auto& s: moves)
+        {
+            Stockfish::Move m {
+                short_algebraic_notation ?
+                Utils::alg_to_move(tmp_pos, s) :
+                Utils::long_alg_to_move(tmp_pos, s)
+            };
+            starting_moves.push_back(m);
+            tmp_pos.DoMove(m);
+        }
+        
+        return starting_moves;
+    }
 
     
     // info parsing
@@ -373,22 +396,20 @@ namespace Utils {
         return std::atan(cp/c) / d;
     }
     
-    void sort_evals_perm(std::vector<int> &perm, const std::vector<double> &evals)
+    void sort_evals_perm(std::vector<int> &perm, const std::vector<double> &evals, Stockfish::Color col)
     {
         std::sort(perm.begin(), perm.end(), [&](int a, int b){
-            return evals[a] > evals[b];
+            return col == WHITE ? evals[a] > evals[b] : evals[a] < evals[b];
         });
     }
     
-    std::vector<int> sort_evals_perm(const std::vector<double> &evals)
+    std::vector<int> sort_evals_perm(const std::vector<double> &evals, Stockfish::Color col)
     {
         // work on a permutation vector.
         std::vector<int> perm(evals.size());
         std::iota(perm.begin(), perm.end(), 0);
         
-        std::sort(perm.begin(), perm.end(), [&](int a, int b){
-            return evals[a] > evals[b];
-        });
+        sort_evals_perm(perm, evals, col);
 
         return perm;
     }

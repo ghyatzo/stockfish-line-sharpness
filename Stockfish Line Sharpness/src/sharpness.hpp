@@ -24,14 +24,12 @@ static constexpr double INACCURACY_THRESHOLD = 0.5; // inaccuracy
 struct MoveDist {
     double good;
     double bad;
-    double blunders;
     double total;
 };
 
 namespace Sharpness {
     
-    MoveDist MoveDistributionCP(const std::vector<double> &evals, double base_eval);
-    MoveDist MoveDistributionWC(const std::vector<double> &evals, double base_eval);
+    MoveDist MoveDistribution(const std::vector<double> &evals, double base_eval);
     MoveDist ComputePosition(Engine &engine, Position &pos);
     MoveDist ComputeMove(Stockfish::Move m, Engine &engine, Position& pos);
     

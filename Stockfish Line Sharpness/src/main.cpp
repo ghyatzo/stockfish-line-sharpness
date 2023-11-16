@@ -67,6 +67,10 @@ public:
         }
         
         if (optind == argc) whole_line_ = false;
+        
+        for (int i {optind}; i < argc; i++) {
+            moves_.push_back(args_[i]);
+        }
     }
     Arguments(const Arguments &other) = delete;
     Arguments& operator=(const Arguments &other) = delete;
@@ -83,22 +87,7 @@ public:
     int depth() {return depth_;}
     size_t size() {return args_.size();}
     
-    // Parse each move, depending on the notation and translate them to a Stockfish::Move for faster
-    // internal manipulation. By necessity we have to advance the position after each move.
-    // This ensures all passed moves are legal. After we reset to the intial position passed through the FEN.
-    std::vector<Stockfish::Move> translate_moves(Position& pos)
-    {
-        std::vector<Stockfish::Move> starting_moves;
-        Position tmp_pos {pos.fen()};
-        for (int i = optind; i < args_.size(); i++)
-        {
-            Stockfish::Move m { short_alg_ ? Utils::alg_to_move(tmp_pos, args_[i]) : Utils::long_alg_to_move(tmp_pos, args_[i]) };
-            starting_moves.push_back(m);
-            tmp_pos.DoMove(m);
-        }
-        
-        return starting_moves;
-    }
+    std::vector<std::string>& moves() {return moves_;}
     
 private:
     std::string engine_path_ {};
@@ -111,28 +100,23 @@ private:
     int depth_ {15};
     
     std::span<char * const> args_;
+    std::vector<std::string> moves_ {};
 };
 
 void print_moves(Engine &engine, Position& pos)
 {
     auto moves = pos.GetMoves();
-    auto evals = engine.Eval(moves, pos);
+    auto evals = engine.EvalMoves(moves, pos);
     auto base_eval = engine.Eval(pos);
-    auto sorted_perm = Utils::sort_evals_perm(evals);
-    
-    if (pos.side_to_move() == Stockfish::WHITE)
-        for (const auto i : sorted_perm) {
-            auto relative_eval = evals[i] - base_eval;
-            std::cout << " " << evals[i] << "\t[" << relative_eval << "]\t";
-            std::cout << Utils::to_alg(pos, moves[i]) << "\t(" << Utils::to_long_alg(moves[i]) << ")" << '\n';
-        }
-    else
-        for (const auto i : std::views::reverse(sorted_perm)) {
-            auto relative_eval = base_eval - evals[i];
-            std::cout << " " << evals[i] << "\t[" << relative_eval << "]\t";
-            std::cout << Utils::to_alg(pos, moves[i]) << "\t(" << Utils::to_long_alg(moves[i]) << ")" << '\n';
-        }
-        
+    auto sorted_perm = Utils::sort_evals_perm(evals, pos.side_to_move());
+    std::cout << "Using the expected game score metric: " << std::endl;
+
+    for (const auto i : sorted_perm) {
+        auto relative_eval = base_eval - evals[i];
+        relative_eval = pos.side_to_move() == Stockfish::WHITE ? -relative_eval : relative_eval;
+        std::cout << " " << evals[i] << "\t[" << relative_eval << "]\t";
+        std::cout << Utils::to_alg(pos, moves[i]) << "\t(" << Utils::to_long_alg(moves[i]) << ")" << '\n';
+    }
 }
 
 double average_sharpness(const std::vector<double> &sharpnesses, Stockfish::Color col, Stockfish::Color starting_col)
@@ -161,12 +145,11 @@ Stockfish::Color starting_color(int n_ply, Stockfish::Color ending_color)
 
 int main(int argc, char * const argv[])
 {
-
     auto args = Arguments(argc, argv);
     auto engine = Engine(args.engine_path());
     auto starting_pos = Position(args.init_fen());
     
-    auto moves = args.translate_moves(starting_pos);
+    auto moves = Utils::translate_moves(starting_pos, args.moves(), args.short_alg_notation());
     engine.Start();
     
     if (args.whole_line()) 
@@ -213,18 +196,18 @@ int main(int argc, char * const argv[])
         print_moves(engine, starting_pos);
     }
     
-    if (args.interactive()) {
-        using namespace std::chrono_literals;
-        
-        std::string input {};
-        while (true) {
-            std::getline(std::cin, input);
-            if (input.empty()) continue;
-            if (input == "exit") break;
-            // send commands to stockfish directly
-            engine.send_command(input);
-            engine.Read("", 1500ms);
-            Utils::print_output(engine.output);
-        }
-    }
+//    if (args.interactive()) {
+//        using namespace std::chrono_literals;
+//        
+//        std::string input {};
+//        while (true) {
+//            std::getline(std::cin, input);
+//            if (input.empty()) continue;
+//            if (input == "exit") break;
+//            // send commands to stockfish directly
+//            engine.send_command(input);
+//            engine.Read("", 1500ms);
+//            Utils::print_output(engine.output);
+//        }
+//    }
 }
