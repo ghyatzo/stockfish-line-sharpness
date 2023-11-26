@@ -22,7 +22,7 @@ namespace Test {
         static const std::string FEN {"1r2k2r/1pPp1p2/1b3qpn/4pP1p/pPB1P1bn/3P1NP1/P2BQ1NP/R3K2R w KQk - 0 1"};
         namespace LongAlg {
             static const std::vector<std::string> Legal {
-                "e1a1", // castling
+                "e1c1", // castling
                 "a2a3", "d2e3", "f3g5", // normal moves
                 "f5g6", "d2h6", "g2h4", // captures
                 "c4f7", // check
@@ -48,6 +48,9 @@ namespace Test {
         }
         namespace Moves {
             static const std::vector<Move> Legal {
+                // Internally, castling is represented with the to_square as the square of the rook
+                // It will be translated to the correct long algebraic notation, but we intentionally
+                // expect the move to the rook square since the generated move will be such.
                 make<CASTLING>(Utils::coord_to_sq("e1"), Utils::coord_to_sq("a1")),
                 make_move(Utils::coord_to_sq("a2"), Utils::coord_to_sq("a3")),
                 make_move(Utils::coord_to_sq("d2"), Utils::coord_to_sq("e3")),
@@ -73,7 +76,7 @@ namespace Test {
         static const std::string FEN {"1r2k2r/1pPp1p2/1b3qpn/4pP1p/pPB1P1bn/3P1NP1/P2BQ1NP/R3K2R b KQk b3 0 1"};
         namespace LongAlg {
             static const std::vector<std::string> Legal {
-                "e8h8", // castling
+                "e8g8", // castling
                 "d7d5", "b6d4", "h6g8", //normal moves
                 "g6f5", "g4f3", "h4f5", // captures
                 "b6f2", //check
@@ -97,6 +100,9 @@ namespace Test {
         }
         namespace Moves {
             static const std::vector<Move> Legal {
+                // Internally, castling is represented with the to_square as the square of the rook
+                // It will be translated to the correct long algebraic notation, but we intentionally
+                // expect the move to the rook square since the generated move will be such.
                 make<CASTLING>(Utils::coord_to_sq("e8"), Utils::coord_to_sq("h8")),
                 make_move(Utils::coord_to_sq("d7"), Utils::coord_to_sq("d5")),
                 make_move(Utils::coord_to_sq("b6"), Utils::coord_to_sq("d4")),

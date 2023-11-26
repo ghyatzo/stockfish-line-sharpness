@@ -118,7 +118,7 @@ namespace Utils {
         auto to   { to_sq(m) };
         
         if (type_of(m) == CASTLING)
-            to = make_square(to > from ? FILE_H : FILE_A, rank_of(from));
+            to = make_square(to > from ? FILE_G : FILE_C, rank_of(from));
         
         std::string move {to_coord(from) + to_coord(to)};
         
@@ -135,7 +135,7 @@ namespace Utils {
             str[4] = char(tolower(str[4])); // The promotion piece character must be lowercased
         
         for (const auto& m : MoveList<LEGAL>(pos)) {
-//            std::cout << to_long_alg(m) << '\n';
+//            std::cout << to_coord(from_sq(m)) << " " << to_coord(to_sq(m)) << std::endl;
             if (str == to_long_alg(m))
                 return m;
         }
@@ -158,7 +158,7 @@ namespace Utils {
         if (alg == "O-O" || alg == "O-O-O") {
             piece = KING;
             from = pos.square<KING>(pos.side_to_move());
-            to = make_square((alg == "O-O") ? FILE_H : FILE_A, rank_of(from));
+            to = make_square((alg == "O-O") ? FILE_G : FILE_C, rank_of(from));
             is_ok(to); is_ok(from);
             return to_coord(from) + to_coord(to);
         }
