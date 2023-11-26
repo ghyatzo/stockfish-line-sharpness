@@ -155,7 +155,7 @@ namespace Sharpness {
                 // The way we compute the sharpness is by comparing bad and good moves, therefore, a move that makes almost all moves bad for the opponent is very sharp.
                 // But if I hang a piece, every move the opponent does that does not take the hanging piece is considered bad, resulting in a very high sharpness.
                 auto move_eval = engine.EvalMove(m, pos);
-                if (abs(base_eval-move_eval) >= INACCURACY_THRESHOLD) continue;
+                if (abs(base_eval-move_eval) >= WINC_THRESHOLD) continue;
                 
                 sharpness = Ratio(ComputeMove(m, engine, pos));
                 if (sharpest_move_sharpness < sharpness) {
