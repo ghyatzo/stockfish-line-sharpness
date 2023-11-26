@@ -29,12 +29,9 @@ struct MoveDist {
 
 namespace Sharpness {
     
-    MoveDist MoveDistribution(const std::vector<double> &evals, double base_eval);
-    MoveDist ComputePosition(Engine &engine, Position &pos);
-    MoveDist ComputeMove(Stockfish::Move m, Engine &engine, Position& pos);
-    
-    double Ratio(const MoveDist &movedist);
-    MoveDist ExpandRatio(const double ratio, const double blunders, const double total_moves);
+    double TotalVar(const std::vector<double> &evals, double base_eval, Stockfish::Color col);
+    double ComputePosition(Engine &engine, Position &pos);
+    double ComputeMove(Stockfish::Move m, Engine &engine, Position& pos);
     
     double Complexity(Engine& engine, Position& pos, int max_depth);
     std::vector<std::string>

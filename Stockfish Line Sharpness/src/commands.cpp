@@ -21,13 +21,13 @@ std::vector<double> LineSharpness(Engine &engine, const std::vector<Stockfish::M
     sharpnesses.reserve(moves.size()+1);
     Position tmp {pos.fen()};
     
-    auto ratio = Sharpness::Ratio(Sharpness::ComputePosition(engine, tmp));
+    auto ratio = Sharpness::ComputePosition(engine, tmp);
     sharpnesses.emplace_back(ratio);
     
     for (int count {}; const auto mm : moves) {
         PROGRESS_BAR(count)
         tmp.DoMove(mm);
-        ratio = Sharpness::Ratio(Sharpness::ComputePosition(engine, tmp));
+        ratio = Sharpness::ComputePosition(engine, tmp);
         sharpnesses.emplace_back(ratio);
         
         ++count;
@@ -38,18 +38,17 @@ std::vector<double> LineSharpness(Engine &engine, const std::vector<Stockfish::M
 
 double PositionSharpness(Engine &engine, Position &pos)
 {
+    auto moves = pos.GetMoves();
     auto movedist = Sharpness::ComputePosition(engine, pos);
     auto pos_complexity = Sharpness::Complexity(engine, pos, engine.Depth());
     // print the ratio
     
     double base_eval = engine.Eval(pos);
     std::cout << "Eval: " << base_eval << " (depth: " << engine.Depth() << ")" << std::endl;
-    std::cout << "In this position there are " << movedist.total << " possible moves.\n"
+    std::cout << "In this position there are " << moves.size() << " possible moves.\n"
     << (pos.side_to_move() ? "Black" : "White") << " to move" << std::endl;
-    std::cout << "\nBad moves: " << movedist.bad << "\n";
-    std::cout << "Ok moves: " << movedist.good << " (|loss| < " << Utils::lc0_cp_to_win(INACCURACY_THRESHOLD*100) << ")\n";
-    std::cout << "Sharpness ratio of: " << Sharpness::Ratio(movedist) << std::endl;
+    std::cout << "Sharpness ratio of: " << movedist << std::endl;
     std::cout << "Complexity score of: " << pos_complexity << std::endl;
     
-    return Sharpness::Ratio(movedist);
+    return movedist;
 }

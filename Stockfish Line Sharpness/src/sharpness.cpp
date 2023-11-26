@@ -21,22 +21,6 @@ static const auto WINC_BLUNDER_THRESHOLD = std::abs(Utils::lc0_cp_to_win(BLUNDER
 
 namespace Sharpness {
     
-    MoveDist
-    MoveDistribution( const std::vector<double> &evals, double base_eval )
-    {
-        double ok_moves {};
-        double bad_moves {};
-        for ( auto e : evals ) {
-            double delta = std::abs( base_eval - e );
-//            // ignore the especially bad moves...
-//            if (delta >= WINC_BLUNDER_THRESHOLD) continue;
-            if ( delta <= WINC_THRESHOLD ) { ok_moves++; }
-            else { bad_moves++; }
-        }
-        
-        return { ok_moves, bad_moves, static_cast<double>(evals.size()) };
-    }
-    
     double TotalVar( const std::vector<double> &evals, double base_eval, Stockfish::Color col) {
         // Computes the accumulated differences between two succesive (sorted) move evaluations,
         // up until the first bad move (included).
@@ -59,37 +43,25 @@ namespace Sharpness {
         return tv/count;
     }
     
-    MoveDist
+    double
     ComputePosition(Engine &engine, Position& pos)
     {
         double base_eval = engine.Eval(pos);
         auto evals = engine.EvalMoves(pos.GetMoves(), pos);
         
-        return MoveDistribution(evals, base_eval);
+        return TotalVar(evals, base_eval, pos.side_to_move());
     }
     
     // TODO: these still needs work.
-    MoveDist ComputeMove(Stockfish::Move m, Engine &engine, Position& pos)
+    double ComputeMove(Stockfish::Move m, Engine &engine, Position& pos)
     {
         // how sharp is this move: playing this move generates a position, how sharp is that position?
         // how sharp is the resulting position for the adversary?
         pos.DoMove(m);
-        auto move_dist = ComputePosition(engine, pos);
+        auto total_var = ComputePosition(engine, pos);
         pos.UndoMove(m);
         
-        return move_dist;
-    }
-    
-    double Ratio(const MoveDist &movedist)
-    {
-        // Version 1:
-        // return (movedist.blunders + movedist.bad) / movedist.total_moves;
-        // Version 2:
-        // return movedist.bad / (movedist.total);
-        // Version 3:
-        // return movedist.bad / (movedist.good + movedist.bad);
-        
-        return ( 1.0 - movedist.good / (movedist.bad + movedist.good) );
+        return total_var;
     }
     
     // TODO: Make a sharpness metric that compares the WDL changes for the moves in a position.
@@ -157,7 +129,7 @@ namespace Sharpness {
                 auto move_eval = engine.EvalMove(m, pos);
                 if (abs(base_eval-move_eval) >= WINC_THRESHOLD) continue;
                 
-                sharpness = Ratio(ComputeMove(m, engine, pos));
+                sharpness = ComputeMove(m, engine, pos);
                 if (sharpest_move_sharpness < sharpness) {
                     sharpest_move = m;
                     sharpest_move_sharpness = sharpness;
