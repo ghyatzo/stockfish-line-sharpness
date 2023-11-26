@@ -37,6 +37,28 @@ namespace Sharpness {
         return { ok_moves, bad_moves, static_cast<double>(evals.size()) };
     }
     
+    double TotalVar( const std::vector<double> &evals, double base_eval, Stockfish::Color col) {
+        // Computes the accumulated differences between two succesive (sorted) move evaluations,
+        // up until the first bad move (included).
+        double tv {};
+        bool break_next = false;
+        auto sorted_perm = Utils::sort_evals_perm(evals, col);
+        if (sorted_perm.size() < 2) return 0;
+        
+        int i = 0;
+        double count = 0;
+        while (!break_next) {
+            double delta = std::abs( base_eval - evals[sorted_perm[i]] );
+            if ( delta >= WINC_THRESHOLD ) { break_next = true; };
+            tv += std::abs(evals[sorted_perm[i]] - evals[sorted_perm[i+1]]);
+            
+            count++;
+            i++;
+            if ( i >= sorted_perm.size() - 1) break;
+        }
+        return tv/count;
+    }
+    
     MoveDist
     ComputePosition(Engine &engine, Position& pos)
     {
@@ -67,7 +89,7 @@ namespace Sharpness {
         // Version 3:
         // return movedist.bad / (movedist.good + movedist.bad);
         
-        return (1.0 - movedist.good / movedist.bad);
+        return ( 1.0 - movedist.good / (movedist.bad + movedist.good) );
     }
     
     // TODO: Make a sharpness metric that compares the WDL changes for the moves in a position.
@@ -126,7 +148,8 @@ namespace Sharpness {
             auto moves = pos.GetMoves();
             auto base_eval = engine.Eval(pos);
             
-            for (auto m : moves) {
+            for (int count{}; auto m : moves) {
+                PROGRESS_BAR(count++);
                 // We have to filter the moves that do not throw the game.
                 // Otherwise, THIS DOES NOT WORK, When computing the sharpest move, this means that we will do a move that maximises the sharpness of the position that follows that move.
                 // The way we compute the sharpness is by comparing bad and good moves, therefore, a move that makes almost all moves bad for the opponent is very sharp.
