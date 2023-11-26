@@ -67,7 +67,17 @@ double Engine::Eval(const Position& pos)
 double Engine::EvalMove(Stockfish::Move m, Position& pos)
 {
     // evaluates the move without changing pos.
-    send_command("position fen " + pos.fen() + " moves " + Utils::to_long_alg(m));
+    auto longm = Utils::to_long_alg(m);
+    if ( longm == "e8h8" ) {
+        longm = "e8g8";
+    } else if (longm == "e8a8") {
+        longm = "e8b8";
+    } else if (longm == "e1h1") {
+        longm = "e1g1";
+    } else if (longm == "e1a1") {
+        longm = "e1b1";
+    }
+    send_command("position fen " + pos.fen() + " moves " + longm);
     send_command("go depth " + std::to_string(depth_));
     Read("bestmove");
     
