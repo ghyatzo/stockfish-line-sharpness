@@ -1,3 +1,4 @@
+*.gcx
 *.xcodeproj
 DerivedData
 qperft.*
