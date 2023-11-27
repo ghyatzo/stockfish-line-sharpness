@@ -25,22 +25,19 @@ namespace Sharpness {
         // Computes the accumulated differences between two succesive (sorted) move evaluations,
         // up until the first bad move (included).
         double tv {};
-        bool break_next = false;
         auto sorted_perm = Utils::sort_evals_perm(evals, col);
         if (sorted_perm.size() < 2) return 0;
         
         int i = 0;
         double count = 0;
-        while (!break_next) {
-            double delta = std::abs( base_eval - evals[sorted_perm[i]] );
-            if ( delta >= WINC_THRESHOLD ) { break_next = true; };
-            tv += std::abs(evals[sorted_perm[i]] - evals[sorted_perm[i+1]]);
+        while ( std::abs( base_eval - evals[sorted_perm[i]] ) < WINC_THRESHOLD ) {
+            tv += std::abs( evals[sorted_perm[i]] - evals[sorted_perm[i+1]] );
             
             count++;
             i++;
             if ( i >= sorted_perm.size() - 1) break;
         }
-        return tv/count;
+        return tv/(count);
     }
     
     double
