@@ -112,35 +112,47 @@ namespace Sharpness {
         for (int i = 0; i < line_length; i++) {
             
             Stockfish::Move sharpest_move {};
-            double sharpest_move_sharpness {};
+            double sharpest_move_sharpness { -std::numeric_limits<double>::infinity() };
             double sharpness {};
             auto moves = pos.GetMoves();
             auto base_eval = engine.Eval(pos);
             
             for (int count{}; auto m : moves) {
-                PROGRESS_BAR(count++);
+                PROGRESS_BAR(count++, moves.size());
                 // We have to filter the moves that do not throw the game.
                 // Otherwise, THIS DOES NOT WORK, When computing the sharpest move, this means that we will do a move that maximises the sharpness of the position that follows that move.
                 // The way we compute the sharpness is by comparing bad and good moves, therefore, a move that makes almost all moves bad for the opponent is very sharp.
                 // But if I hang a piece, every move the opponent does that does not take the hanging piece is considered bad, resulting in a very high sharpness.
                 auto move_eval = engine.EvalMove(m, pos);
-                if (abs(base_eval-move_eval) >= WINC_THRESHOLD) continue;
+                auto delta = abs(base_eval-move_eval);
+                if (delta >= WINC_THRESHOLD) continue;
+                
+                // Only using the sharpness could lead to very bad moves, maybe weight it with how bad a move could be compared to how sharp it is.
                 
                 sharpness = ComputeMove(m, engine, pos);
-                if (sharpest_move_sharpness < sharpness) {
+                auto overall_score = sharpness - delta*0.5;
+                if (sharpest_move_sharpness < overall_score) {
                     sharpest_move = m;
-                    sharpest_move_sharpness = sharpness;
+                    sharpest_move_sharpness = overall_score;
                 }
             }
 
             line.push_back(Utils::to_alg(pos, sharpest_move));
-            std::cout << i << ". " << line.back() << " ";
+            if (pos.side_to_move() == Stockfish::BLACK)
+                std::cout << i << ". ... " << line.back() << std::endl;
+            else
+                std::cout << i << ". " << line.back() << " ";
             pos.DoMove(sharpest_move);
             
             // calculate the response
             auto best_response = engine.GetBestMove(pos);
             line.push_back(Utils::long_to_alg(pos, best_response));
-            std::cout << line.back() << std::endl;
+            
+            if (pos.side_to_move() == Stockfish::WHITE)
+                std::cout << i+1 << ". " << line.back() << "\n";
+            else
+                std::cout << line.back() << std::endl;
+
             pos.DoMove(Utils::long_alg_to_move(pos, best_response));
         }
         std::cout << '\n';
