@@ -116,6 +116,10 @@ void print_moves(Engine &engine, Position& pos)
         relative_eval = pos.side_to_move() == Stockfish::WHITE ? -relative_eval : relative_eval;
         std::cout << " " << evals[i] << "\t[" << relative_eval << "]\t";
         std::cout << Utils::to_alg(pos, moves[i]) << "\t(" << Utils::to_long_alg(moves[i]) << ")" << '\n';
+        if (relative_eval < -0.9 ) {
+            std::cout << " ... here be exceptionally bad moves " << std::endl;
+            break;
+        }
     }
 }
 
